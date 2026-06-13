@@ -1,0 +1,13 @@
+---
+name: delegate-task-full-inheritance
+version: 1.0.0
+description: >
+  Blocks delegate_task calls that limit toolsets via the toolsets parameter.
+  Enforces full inheritance of parent toolsets to prevent unintended
+  capability restrictions in subagents.
+author: yqYo1
+license: MIT
+metadata:
+  hermes:
+    tags: [delegation, policy, security]
+    requires_hermes_version: ">=0.6.0"
