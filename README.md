@@ -38,25 +38,29 @@ hermes-extensions/
 
 ## インストール方法
 
+### リポジトリのクローン
+
+```bash
+ghq get git@github.com:yqYo1/hermes-extensions.git
+```
+
 ### プラグインのインストール
 
 ```bash
-# リポジトリをクローン
-cd ~/.hermes/plugins
-ln -s /path/to/hermes-extensions/plugins/delegate-task-full-inheritance .
+# シンボリックリンクでインストール（推奨）
+ln -s ~/ghq/github.com/yqYo1/hermes-extensions/plugins/delegate-task-full-inheritance ~/.hermes/plugins/
 
-# または直接コピー
-cp -r /path/to/hermes-extensions/plugins/delegate-task-full-inheritance ~/.hermes/plugins/
-
-# config.yaml で有効化
+# 有効化
 hermes plugins enable delegate-task-full-inheritance
 ```
+
+シンボリックリンクを使用すると、リポジトリを `git pull` するだけでプラグインの更新が即座に反映されます。
 
 ### スキルのインストール
 
 ```bash
-# スキルを skills ディレクトリにコピー
-cp -r /path/to/hermes-extensions/skills/<skill-name> ~/.hermes/skills/
+# シンボリックリンクでインストール
+ln -s ~/ghq/github.com/yqYo1/hermes-extensions/skills/<skill-name> ~/.hermes/skills/
 ```
 
 ## ライセンス
