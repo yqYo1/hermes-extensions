@@ -1,0 +1,12 @@
+---
+name: browser-localhost-block
+version: 1.0.0
+description: >
+  Blocks browser tools from accessing localhost/127.0.0.1 and suggests
+  using the tailscale IP instead.
+author: yqYo1
+license: MIT
+metadata:
+  hermes:
+    tags: [browser, security, tailscale, network]
+    requires_hermes_version: ">=0.6.0"
