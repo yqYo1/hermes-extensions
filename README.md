@@ -2,67 +2,78 @@
 
 yqYo1's Hermes Agent plugins and skills collection.
 
-## 概要
+## Overview
 
-このリポジトリは、Hermes Agent用の自作プラグインとスキルをまとめて管理するためのものです。
+This repository collects self-made plugins and skills for Hermes Agent.
 
-## ディレクトリ構成
+## Directory Structure
 
 ```
 hermes-extensions/
-├── plugins/                          # Hermes プラグイン
-│   └── delegate-task-full-inheritance/   # delegate_task のツール限定を禁止するプラグイン
-│       ├── plugin.yaml              # プラグインマニフェスト
-│       ├── __init__.py              # エントリポイント（register(ctx)）
-│       └── README.md                # プラグイン個別の説明
-├── skills/                          # Hermes スキル（将来的に追加予定）
-│   └── (skill-name)/
-│       └── SKILL.md
-├── LICENSE                          # MIT License
-└── README.md                        # このファイル
+├── plugins/                          # Hermes plugins
+│   ├── browser-localhost-block/      # Blocks browser access to localhost
+│   └── delegate-task-full-inheritance/   # Blocks toolset limitation in delegate_task
+├── skills/                           # Hermes skills
+│   └── git-workflow/                 # Git workflow documentation
+├── LICENSE                           # MIT License
+└── README.md                         # This file
 ```
 
-## プラグイン一覧
+## Plugins
+
+### browser-localhost-block
+
+Blocks browser tools from accessing localhost/127.0.0.1 and suggests using the tailscale IP instead.
+
+**Purpose:**
+- The browser backend runs on a separate instance from Hermes
+- localhost would target the browser backend's own localhost, not the Hermes instance
+- Enforces using tailscale IP (100.64.x.x) for cross-instance access
+
+**Behavior:**
+- Detects localhost/127.0.0.1 URLs in browser tool calls
+- Dynamically retrieves the tailscale IP when blocking
+- Returns error message with the tailscale IP as an alternative
 
 ### delegate-task-full-inheritance
 
-`delegate_task` で `toolsets` パラメータを指定してツールを限定することを禁止するプラグイン。
+Blocks `delegate_task` calls that specify a limited `toolsets` parameter.
 
-**目的:**
-- サブエージェントが親のツールセットを完全に継承することを強制する
-- ツールの限定による意図しない機能制限を防ぐ
+**Purpose:**
+- Forces subagents to inherit the parent's full toolset
+- Prevents unintended capability restrictions
 
-**動作:**
-- `delegate_task` の呼び出し時に `toolsets` パラメータが存在する場合、ブロックしてエラーを返す
-- ブロック理由は LLM にも通知され、再試行を促す
+**Behavior:**
+- Blocks when `toolsets` parameter is present in `delegate_task`
+- Error message is sent to the LLM as well, prompting a retry
 
-## インストール方法
+## Installation
 
-### リポジトリのクローン
+### Clone the repository
 
 ```bash
 ghq get git@github.com:yqYo1/hermes-extensions.git
 ```
 
-### プラグインのインストール
+### Install plugins
 
 ```bash
-# シンボリックリンクでインストール（推奨）
-ln -s ~/ghq/github.com/yqYo1/hermes-extensions/plugins/delegate-task-full-inheritance ~/.hermes/plugins/
+# Symlink installation (recommended)
+ln -s ~/ghq/github.com/yqYo1/hermes-extensions/plugins/<plugin-name> ~/.hermes/plugins/
 
-# 有効化
-hermes plugins enable delegate-task-full-inheritance
+# Enable
+hermes plugins enable <plugin-name>
 ```
 
-シンボリックリンクを使用すると、リポジトリを `git pull` するだけでプラグインの更新が即座に反映されます。
+Symlinks allow instant updates via `git pull` in the repository.
 
-### スキルのインストール
+### Install skills
 
 ```bash
-# シンボリックリンクでインストール
+# Symlink installation
 ln -s ~/ghq/github.com/yqYo1/hermes-extensions/skills/<skill-name> ~/.hermes/skills/
 ```
 
-## ライセンス
+## License
 
-MIT License - 詳細は [LICENSE](LICENSE) を参照してください。
+MIT License - see [LICENSE](LICENSE) for details.
