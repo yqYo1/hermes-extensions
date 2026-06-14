@@ -1,23 +1,23 @@
 # browser-localhost-block
 
-ブラウザツールが localhost / 127.0.0.1 にアクセスするのをブロックし、代わりに tailscale IP を使用するように促す Hermes Agent プラグイン。
+Hermes Agent plugin that blocks browser tools from accessing localhost/127.0.0.1 and suggests using the tailscale IP instead.
 
-## 目的
+## Purpose
 
-この環境では、ブラウザバックエンドは Hermes が動作しているインスタンスとは別のインスタンスで動作しています。そのため、ブラウザツールから localhost にアクセスすると、ブラウザバックエンド自身の localhost に接続しようとするため、Hermes インスタンス上のサービスにはアクセスできません。
+In this environment, the browser backend runs on a separate instance from Hermes. Therefore, accessing localhost from browser tools would connect to the browser backend's own localhost, not the Hermes instance's services.
 
-このプラグインは、localhost/127.0.0.1 へのアクセスをブロックし、tailscale IP (100.64.x.x) を使用するように指示します。
+This plugin blocks localhost/127.0.0.1 access and instructs using the tailscale IP (100.64.x.x) instead.
 
-## 動作
+## Behavior
 
-- `browser_navigate` などのブラウザツールで localhost/127.0.0.1 URL を検出した場合にブロック
-- ブロック時に動的に tailscale IP を取得（`tailscale ip` コマンドなど）
-- tailscale IP が取得できた場合: その IP を提示
-- 取得できなかった場合: tailscale IP の取得方法を提示
+- Blocks when localhost/127.0.0.1 URLs are detected in browser tool calls
+- Dynamically retrieves tailscale IP at block time (`tailscale ip` command, etc.)
+- If tailscale IP is found: presents that IP
+- If retrieval fails: presents instructions on how to find the tailscale IP
 
-## ブロックメッセージ例
+## Block Message Examples
 
-### tailscale IP 取得成功時
+### When tailscale IP is retrieved
 
 ```
 Browser tool blocked: attempted to access localhost (http://localhost:8080).
@@ -27,7 +27,7 @@ not the Hermes instance.
 Use the tailscale IP instead: http://100.64.0.8/
 ```
 
-### tailscale IP 取得失敗時
+### When tailscale IP retrieval fails
 
 ```
 Browser tool blocked: attempted to access localhost (http://localhost:8080).
@@ -38,16 +38,16 @@ Please bind your service to the tailscale interface and use the tailscale
 IP (100.64.x.x) for access. Run 'tailscale ip' to find your IP.
 ```
 
-## インストール
+## Installation
 
 ```bash
-# シンボリックリンクでインストール（推奨）
+# Symlink installation (recommended)
 ln -s ~/ghq/github.com/yqYo1/hermes-extensions/plugins/browser-localhost-block ~/.hermes/plugins/
 
-# 有効化
+# Enable
 hermes plugins enable browser-localhost-block
 ```
 
-## ライセンス
+## License
 
 MIT License
