@@ -58,3 +58,7 @@ jobs:
       # Actionlint check - must pass
       - name: Run actionlint
         run: nix build .#checks.x86_64-linux.actionlint
+
+      # Kakehashi check - markdown code block formatting
+      - name: Run kakehashi
+        run: nix build .#checks.x86_64-linux.kakehashi

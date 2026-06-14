@@ -5,9 +5,13 @@
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
     flake-parts.url = "github:hercules-ci/flake-parts";
     treefmt-nix.url = "github:numtide/treefmt-nix";
+    kakehashi = {
+      url = "github:atusy/kakehashi";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
   };
 
-  outputs = inputs@{ self, nixpkgs, flake-parts, treefmt-nix }:
+  outputs = inputs@{ self, nixpkgs, flake-parts, treefmt-nix, kakehashi }:
     flake-parts.lib.mkFlake { inherit inputs; } {
       systems = [ "x86_64-linux" "aarch64-linux" "x86_64-darwin" "aarch64-darwin" ];
 
@@ -25,6 +29,7 @@
               enable = true;
               format = true;
             };
+            yamlfmt.enable = true;
           };
           settings = {
             formatter = {
@@ -33,6 +38,14 @@
               };
               ruff = {
                 includes = [ "*.py" ];
+              };
+              yamlfmt = {
+                includes = [ "*.yaml" "*.yml" ];
+              };
+              kakehashi = {
+                command = "${kakehashi.packages.${system}.default}/bin/kakehashi";
+                options = [ "format" ];
+                includes = [ "*.md" ];
               };
             };
           };
@@ -43,6 +56,7 @@
           basedpyright = pkgs.basedpyright;
           ty = pkgs.python312Packages.ty;
           typos = pkgs.typos;
+          kakehashi = kakehashi.packages.${system}.default;
         };
 
         # Checks
@@ -143,6 +157,17 @@
             '';
             installPhase = "mkdir -p $out";
           };
+
+          # Kakehashi check (markdown code block formatting)
+          kakehashi = pkgs.stdenv.mkDerivation {
+            name = "kakehashi-check";
+            src = self;
+            nativeBuildInputs = [ kakehashi.packages.${system}.default ];
+            buildPhase = ''
+              kakehashi format --check --fail-on-change .
+            '';
+            installPhase = "mkdir -p $out";
+          };
         };
 
         # Development shell
@@ -151,6 +176,7 @@
             pkgs.basedpyright
             pkgs.python312Packages.ty
             pkgs.typos
+            kakehashi.packages.${system}.default
             config.treefmt.build.wrapper
           ];
         };
