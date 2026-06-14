@@ -1,0 +1,44 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  # Format check - must pass
+  format:
+    name: Format Check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Nix
+        uses: DeterminateSystems/nix-installer-action@main
+
+      - name: Run treefmt
+        run: nix fmt -- --fail-on-change --no-cache
+
+  # Lint checks
+  lint:
+    name: Lint Checks
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Nix
+        uses: DeterminateSystems/nix-installer-action@main
+
+      # Typos check - must pass
+      - name: Check typos
+        run: nix build .#checks.x86_64-linux.typos
+
+      # Basedpyright check - must pass
+      - name: Run basedpyright
+        run: nix build .#checks.x86_64-linux.basedpyright
+
+      # Ty check - experimental, allowed to fail
+      - name: Run ty (experimental)
+        continue-on-error: true
+        run: nix build .#checks.x86_64-linux.ty
