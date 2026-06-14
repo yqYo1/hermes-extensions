@@ -87,6 +87,62 @@
             '';
             installPhase = "mkdir -p $out";
           };
+
+          # Markdownlint check
+          markdownlint = pkgs.stdenv.mkDerivation {
+            name = "markdownlint-check";
+            src = self;
+            nativeBuildInputs = [ pkgs.markdownlint-cli ];
+            buildPhase = ''
+              markdownlint "**/*.md" || {
+                echo "markdownlint found issues"
+                exit 1
+              }
+            '';
+            installPhase = "mkdir -p $out";
+          };
+
+          # Textlint check
+          textlint = pkgs.stdenv.mkDerivation {
+            name = "textlint-check";
+            src = self;
+            nativeBuildInputs = [ pkgs.textlint ];
+            buildPhase = ''
+              textlint "**/*.md" || {
+                echo "textlint found issues"
+                exit 1
+              }
+            '';
+            installPhase = "mkdir -p $out";
+          };
+
+          # Yamllint check (YAML syntax)
+          yamllint = pkgs.stdenv.mkDerivation {
+            name = "yamllint-check";
+            src = self;
+            nativeBuildInputs = [ pkgs.yamllint ];
+            buildPhase = ''
+              yamllint . || {
+                echo "yamllint found issues"
+                exit 1
+              }
+            '';
+            installPhase = "mkdir -p $out";
+          };
+
+          # Actionlint check (GitHub Actions)
+          actionlint = pkgs.stdenv.mkDerivation {
+            name = "actionlint-check";
+            src = self;
+            nativeBuildInputs = [ pkgs.actionlint ];
+            buildPhase = ''
+              actionlint .github/workflows/*.yml || {
+                echo "actionlint found issues"
+                exit 1
+              }
+            '';
+            installPhase = "mkdir -p $out";
+          };
         };
 
         # Development shell
