@@ -89,10 +89,11 @@
           };
 
           # Checks
+          # Note: treefmt-nix flake module auto-creates checks.treefmt and
+          # formatter output when flakeCheck/flakeFormatter are true (default).
+          # Do NOT manually set formatting = config.treefmt.build.check here
+          # because build.check is now a function (takes projectRoot), not a derivation.
           checks = {
-            # Format check (treefmt --fail-on-change)
-            formatting = config.treefmt.build.check;
-
             # Typos check
             typos = pkgs.stdenv.mkDerivation {
               name = "typos-check";
