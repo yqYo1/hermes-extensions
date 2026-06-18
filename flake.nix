@@ -57,27 +57,6 @@
               ruff-format.enable = true;
               yamlfmt.enable = true;
             };
-            settings = {
-              formatter = {
-                nixfmt = {
-                  includes = [ "*.nix" ];
-                };
-                ruff-format = {
-                  includes = [ "*.py" ];
-                };
-                yamlfmt = {
-                  includes = [
-                    "*.yaml"
-                    "*.yml"
-                  ];
-                };
-                kakehashi = {
-                  command = "${kakehashi.packages.${system}.default}/bin/kakehashi";
-                  options = [ "format" ];
-                  includes = [ "*.md" ];
-                };
-              };
-            };
           };
 
           # Packages for checks
