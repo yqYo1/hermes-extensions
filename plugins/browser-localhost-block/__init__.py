@@ -21,18 +21,20 @@ from typing import Any, Dict, Optional
 
 
 # Browser tools that accept a URL parameter
-_BROWSER_URL_TOOLS = frozenset({
-    "browser_navigate",
-    "browser_click",
-    "browser_type",
-    "browser_press",
-    "browser_scroll",
-    "browser_snapshot",
-    "browser_get_images",
-    "browser_vision",
-    "browser_console",
-    "browser_back",
-})
+_BROWSER_URL_TOOLS = frozenset(
+    {
+        "browser_navigate",
+        "browser_click",
+        "browser_type",
+        "browser_press",
+        "browser_scroll",
+        "browser_snapshot",
+        "browser_get_images",
+        "browser_vision",
+        "browser_console",
+        "browser_back",
+    }
+)
 
 # Patterns that indicate localhost / loopback access
 _LOCALHOST_PATTERNS = [

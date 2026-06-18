@@ -208,7 +208,10 @@ def _on_post_llm_call(
 
 
 def _on_pre_tool_call(
-    tool_name: str = "", args: dict[str, Any] | None = None, session_id: str = "", **kwargs
+    tool_name: str = "",
+    args: dict[str, Any] | None = None,
+    session_id: str = "",
+    **kwargs,
 ):
     """ツール呼び出しを記録し、ツールループを検知→確認→ブロック"""
     if not _enabled() or not session_id:
@@ -232,9 +235,7 @@ def _on_pre_tool_call(
         return None
 
     if not _confirm_cfg().get("enabled", True):
-        return _execute_tool_block(
-            session_id, loop_start, tool_name, kwargs.get("ctx")
-        )
+        return _execute_tool_block(session_id, loop_start, tool_name, kwargs.get("ctx"))
 
     details = f"tool '{tool_name}' called repeatedly with similar arguments"
     ctx = kwargs.get("ctx")
