@@ -26,6 +26,7 @@ Plugins are discovered from 4 sources (priority order):
 | Pip | `setup.py` entry points | `hermes_agent.plugins` group |
 
 **Required files per plugin:**
+
 ```
 ~/.hermes/plugins/<name>/
 ├── plugin.yaml          # Manifest
@@ -48,6 +49,7 @@ hooks:
 ```
 
 **Fields:**
+
 | Field | Required | Description |
 |-------|----------|-------------|
 | `name` | Yes | Plugin identifier |
@@ -72,6 +74,7 @@ def register(ctx):
 ```
 
 **PluginContext methods:**
+
 | Method | Purpose |
 |--------|---------|
 | `register_hook(name, callback)` | Register lifecycle hook |
@@ -96,9 +99,17 @@ def register(ctx):
 | `on_session_reset` | `/reset` executed | Per reset | No | `session_id` |
 | `on_session_finalize` | Full teardown | Once per session | No | `session_id` |
 
-**Timing detail:** `pre_llm_call` / `post_llm_call` fire ONCE per user turn, in the prologue/epilogue of `run_conversation()` (conversation_loop.py). They are **not** called inside the tool-calling while loop. In contrast, `pre_api_request` / `post_api_request` fire on **every API call iteration** inside the loop. If you need per-request tracing or per-iteration data, use `pre_api_request` — not `pre_llm_call`. The context from `pre_llm_call` is collected once and reused across all loop iterations. This is an intentional design to avoid redundant hook calls.
+**Timing detail:** `pre_llm_call` / `post_llm_call` fire ONCE per user turn, in
+the prologue/epilogue of `run_conversation()` (conversation_loop.py). They are
+**not** called inside the tool-calling while loop. In contrast,
+`pre_api_request` / `post_api_request` fire on **every API call iteration**
+inside the loop. If you need per-request tracing or per-iteration data, use
+`pre_api_request` — not `pre_llm_call`. The context from `pre_llm_call` is
+collected once and reused across all loop iterations. This is an intentional
+design to avoid redundant hook calls.
 
 **Blocking syntax (pre_tool_call only):**
+
 ```python
 return {"action": "block", "message": "Reason for blocking"}
 ```
@@ -123,9 +134,11 @@ system prompt, and NOT persisted to the session DB.
 
 3. **API-call injection** (`conversation_loop.py:712-732`): Before each LLM
    API call, the current turn's user message content is augmented:
+
    ```python
    api_msg["content"] = _base + "\n\n" + "\n\n".join(_injections)
    ```
+
    The original `messages` list is never mutated — only the API-copy gets
    the injection. Changes are **ephemeral** (not persisted to session DB,
    not visible in transcripts).
@@ -154,7 +167,7 @@ return "Additional text to append"
 ### Comparison with other injection mechanisms
 
 | Mechanism | Scope | Persisted? | Use Case |
-|-----------|-------|-----------|----------|
+|-----------|-------|------------|----------|
 | `pre_llm_call` `{"context"}` | All platforms | No (ephemeral) | RAG, guardrails, suffix, memory prefetch |
 | `ctx.inject_message()` | All platforms | Yes (appears next turn) | Recovery prompts, timed injections |
 | `pre_gateway_dispatch` `"rewrite"` | Gateway only | Yes | Content filtering, message transformation |
@@ -195,6 +208,7 @@ messages = db.get_messages(session_id)  # List[Dict] with role, content, etc.
 ```
 
 **Direct SQLite fallback** (if SessionDB API changes):
+
 ```python
 import sqlite3
 from hermes_cli.config import get_hermes_home
@@ -267,19 +281,25 @@ detect_loop([...])  # Test with sample data
 **Never develop plugins directly in `~/.hermes/plugins/`.** The `~/.hermes/plugins/` directory is for **activation symlinks only**, not for source development.
 
 **Correct workflow:**
+
 1. **Develop** in the `hermes-extensions` repository (or your equivalent plugin collection repo):
+
    ```
    ~/ghq/github.com/yqYo1/hermes-extensions/plugins/<plugin-name>/
    ├── plugin.yaml
    ├── __init__.py
    └── ...
    ```
+
 2. **Activate** via symlink to `~/.hermes/plugins/`:
+
    ```bash
    ln -s ~/ghq/github.com/yqYo1/hermes-extensions/plugins/<plugin-name> \
          ~/.hermes/plugins/<plugin-name>
    ```
+
 3. **Enable** the plugin:
+
    ```bash
    hermes plugins enable <plugin-name>
    ```

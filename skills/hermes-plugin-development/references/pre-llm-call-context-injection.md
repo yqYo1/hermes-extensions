@@ -133,6 +133,7 @@ except Exception as exc:
 ```
 
 **Key behaviors:**
+
 - Returns can be `{"context": "..."}` OR a plain string
 - Multiple plugins' contexts are **merged** with `"\n\n"`
 - Order follows plugin discovery order (alphabetical by directory name)
@@ -156,6 +157,7 @@ if idx == current_turn_user_idx and msg.get("role") == "user":
 ```
 
 **Key behaviors:**
+
 - The original `messages` list is **never mutated** — only the API-copy gets the injection
 - Changes are **ephemeral** — not persisted to session DB, not visible in logs
 - Memory prefetch context is injected **before** plugin context
@@ -201,7 +203,7 @@ kwargs = {
 ## Comparison With Other Injection Mechanisms
 
 | Mechanism | When | Scope | Persisted? | Use Case |
-|-----------|------|-------|-----------|----------|
+|-----------|------|-------|------------|----------|
 | `pre_llm_call` return `{"context"}` | Before API call (once per turn) | All platforms | No (ephemeral) | RAG, guardrails, suffix injection, memory prefetch |
 | `ctx.inject_message()` | Mid-conversation (interrupt queue) | All platforms | Yes (appears next turn) | Recovery prompts, timed injections |
 | `pre_gateway_dispatch` `"rewrite"` | Gateway message dispatch | Gateway only | Yes (rewrites source text) | Content filtering, message transformation |
@@ -247,6 +249,7 @@ def register(ctx) -> None:
 ```
 
 **config.yaml** entry:
+
 ```yaml
 plugins:
   enabled:

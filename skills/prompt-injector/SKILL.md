@@ -75,13 +75,15 @@ plugins:
 ## Source Types
 
 ### Static (`type: static`)
+
 Inline text defined directly in the config. Best for short, always-on behavioral rules.
 
 | Field   | Required | Description        |
 |---------|----------|--------------------|
-| `text`  | Yes      | The content to inject. Use `|` for multi-line YAML strings. |
+| `text`  | Yes      | The content to inject. Use backtick-pipe-backtick for multi-line YAML strings. |
 
 ### File (`type: file`)
+
 Reads content from a file on disk. The file is re-read every turn.
 
 | Field  | Required | Description                              |
@@ -89,6 +91,7 @@ Reads content from a file on disk. The file is re-read every turn.
 | `path` | Yes      | Absolute path, or relative to HERMES_CWD. Supports `~/` expansion. |
 
 ### Skill (`type: skill`)
+
 Loads the SKILL.md content from a skill installed in `~/.hermes/skills/`.
 
 | Field        | Required | Description                                                       |
