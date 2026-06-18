@@ -1,0 +1,9 @@
+name: prompt-injector
+version: 1.0.0
+description: >
+  Injects configured context into every user message via the pre_llm_call hook. Supports static text, file-based context, and skill content injection.
+
+author: yqYo1
+license: MIT
+hooks:
+  - pre_llm_call
