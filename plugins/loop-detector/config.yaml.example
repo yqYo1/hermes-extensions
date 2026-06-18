@@ -1,0 +1,22 @@
+plugins:
+  loop_detector:
+    enabled: true
+    thinking_loop:
+      enabled: true
+      similarity_threshold: 0.85
+      window_size: 5
+      min_repetitions: 2
+    tool_loop:
+      enabled: true
+      max_identical_calls: 2
+      window_size: 6
+    confirmation:
+      enabled: true
+    rollback:
+      max_retries: 3
+      recovery_prompt: |
+        [system notification]
+        前回の試行でループが検知されました。以下に注意してください:
+        - 同じ推論や同じツール呼び出しを繰り返さないでください
+        - 異なるアプローチや別のツールを検討してください
+        - すでに試行済みの内容は省略し、次のステップに進んでください
