@@ -15,19 +15,23 @@ metadata:
 ## Repository Management
 
 ### Clone
+
 - Use `ghq` at `~/.nix-profile/bin/ghq` for cloning repositories.
 
 ### Default Branch Protection
+
 - For each repository under `ghq`, the **root directory must always remain on the remote default branch** (main, develop, etc.).
 - The root directory is a **mirror of the remote default branch** — it should reflect exactly what is on the remote, with no local modifications.
 - On the default branch, **only pull from the remote** — never commit, push, or make any local changes.
 - **CRITICAL**: If you find yourself working on a feature branch in the root directory, **stop immediately**, checkout the default branch, and move work to a worktree. This is a workflow violation.
 
 ### Worktree Mode
+
 - Perform **all work exclusively** in `.worktree/<branch>/` directories.
 - When `delegate_task` changes files, branch off the parent worktree.
 - **Never create or check out feature branches in the root directory.**
-- **NEVER run `git checkout` inside a worktree to switch branches.** A worktree is bound to a single branch; switching branches inside it violates the worktree contract and causes confusion. If you need to work on a different branch, create a **new worktree** instead.
+- **NEVER run `git checkout` inside a worktree to switch branches.** A worktree is bound to a single branch; switching branches inside it violates the worktree contract and causes confusion. If you need to work on a different branch, create a
+  **new worktree** instead.
 - **Principle: Create a new worktree rather than switching branches.** Whether in the root directory or inside an existing worktree, always prefer `git worktree add` over `git checkout` for starting work on a new branch.
 
 ## Fork Handling
@@ -37,6 +41,7 @@ When working with forks on GitHub (or other remotes):
 - **Clone the fork independently using `ghq`**, not as a worktree of the upstream repository.
 - The fork and upstream are separate repositories with separate remotes. Treat them as independent clones.
 - Example:
+
   ```bash
   # Clone upstream (for reference, read-only)
   ghq get github.com/original-owner/original-repo
@@ -44,6 +49,7 @@ When working with forks on GitHub (or other remotes):
   # Clone your fork (for your work, read-write)
   ghq get github.com/your-username/forked-repo
   ```
+
 - Each clone has its own `.git/` directory, its own remotes, and its own worktrees.
 - **Never nest a fork inside another repository's worktree.** This creates confusion about which remote to push to and which branch belongs to which repo.
 
@@ -61,12 +67,14 @@ When you need to apply changes to the default branch (e.g., main):
 3. **Open a Pull Request (or Merge Request)** on the remote (GitHub, GitLab, etc.).
 4. **Merge the PR on the remote** using the web UI or API.
 5. **Pull the updated default branch locally** to sync your root directory:
+
    ```bash
    cd /path/to/repo/root
    git pull origin main
    ```
 
 This ensures:
+
 - The default branch on the remote is the single source of truth.
 - Local root directory remains a clean mirror of the remote default branch.
 - All changes go through review (if PR review is enabled) before hitting the default branch.
@@ -78,12 +86,15 @@ This ensures:
 - **NEVER set `user.name` or `user.email` in local `.git/config` within worktrees.**
 - Local git identity settings override global settings and can cause commits to be authored under wrong identities (e.g., "PokeCon Dev" instead of the user's GitHub account).
 - If local `user.name` or `user.email` exists in a worktree, **remove them immediately**:
+
   ```bash
   git config --local --unset user.name
   git config --local --unset user.email
   ```
+
 - Always rely on **global `~/.gitconfig`** for identity settings.
 - Before making any commit in a worktree, verify identity:
+
   ```bash
   git config --local user.name 2>/dev/null || git config --global user.name
   git config --local user.email 2>/dev/null || git config --global user.email
@@ -94,16 +105,19 @@ This ensures:
 If commits show the wrong author (e.g., "PokeCon Dev" instead of the user's GitHub account), the cause is almost always a local `user.name`/`user.email` override in the worktree.
 
 **Detection:**
+
 ```bash
 git log --oneline --author="Wrong Name" --format="%h %an <%ae> %s"
 ```
 
 **Fix for unpushed commits:**
+
 ```bash
 git commit --amend --author="Correct Name <correct@email.com>" --no-edit
 ```
 
 **Fix for already-pushed commits (requires force push):**
+
 ```bash
 git filter-branch --env-filter '
 if [ "$GIT_AUTHOR_NAME" = "Wrong Name" ]; then
@@ -120,6 +134,7 @@ git push --force --all origin
 ```
 
 **Prevention (run in every new worktree):**
+
 ```bash
 git config --local --unset user.name 2>/dev/null || true
 git config --local --unset user.email 2>/dev/null || true
@@ -256,7 +271,11 @@ cd $(dirname FILE) && git rev-parse --git-dir
 
 **Anti-pattern to avoid**: Making multiple patches across multiple files and leaving them uncommitted. The user explicitly called this out as a workflow failure.
 
-**Real-world pitfall from 2026-06-05 session**: Even with this skill loaded, the agent accumulated multiple fixes (shortcut button keybinding, holdEndSkip browser note, widget_mode type clarification, execution control key relationship) across multiple turns without committing. User had to explicitly remind: "変更したらある程度の単位毎に必ずコミットとpushを行って下さい" (Commit and push at every reasonable unit of change). **Lesson**: Do not wait for "completion" of a logical group — commit after EACH patch, especially during specification review/fix cycles where multiple independent fixes are made in sequence.
+**Real-world pitfall from 2026-06-05 session**: Even with this skill loaded, the agent accumulated multiple fixes
+(shortcut button keybinding, holdEndSkip browser note, widget_mode type clarification, execution control key relationship)
+across multiple turns without committing. User had to explicitly remind:
+"変更したらある程度の単位毎に必ずコミットとpushを行って下さい" (Commit and push at every reasonable unit of change).
+**Lesson**: Do not wait for "completion" of a logical group — commit after EACH patch, especially during specification review/fix cycles where multiple independent fixes are made in sequence.
 
 ### Locating the Correct Worktree
 
