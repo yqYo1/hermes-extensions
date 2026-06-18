@@ -133,13 +133,16 @@ git config --local --unset user.email 2>/dev/null || true
 ## Subagent Branch Cleanup
 
 ### Problem
+
 `delegate_task` subagents may create numerous temporary branches and worktrees (e.g., `phase4-*`, `phase5-*`, `phase6-*`) for parallel work. These accumulate and clutter both local and remote repositories.
 
 ### Prevention
+
 - When spawning subagents for parallel work, **instruct them to use a single branch naming convention** or consolidate work into fewer branches.
 - Prefer **sequential work on a single branch** over many parallel temporary branches unless parallelism is explicitly required.
 
 ### Cleanup Procedure
+
 After subagent work completes, audit and remove temporary branches:
 
 ```bash
@@ -161,12 +164,14 @@ git branch -D <temp-branch-1> <temp-branch-2> ...
 ```
 
 ### What to Keep
+
 - The user's main working branch (e.g., `refactor/rust-core`)
 - Branches with open PRs
 - Branches explicitly requested by the user
 - The current active worktree
 
 ### What to Delete
+
 - `phase*-*` pattern branches created by subagents
 - Detached HEAD worktrees
 - Branches already merged to main
@@ -201,12 +206,14 @@ git worktree list
 ### Duplicate File Path Pitfall
 
 When using `ghq` with git worktrees, the same file may exist at two different paths:
+
 - `~/ghq/github.com/<user>/<repo>/.worktree/<branch>/<file>` (the actual git worktree)
 - `~/<repo>/.worktree/<branch>/<file>` (a stale copy or symlink target, NOT git-tracked)
 
 **Symptom:** `patch` appears to succeed but `git diff` shows no changes. The file size differs between the two paths.
 
 **Detection:**
+
 ```bash
 # Compare file sizes
 ls -la ~/ghq/.../.worktree/<branch>/FILE
@@ -220,6 +227,7 @@ md5sum ~/<repo>/.worktree/<branch>/FILE
 **Fix:** Always use the path under `~/ghq/` for git operations. The `~/<repo>/` path may be a stale copy that is not tracked by git.
 
 **Prevention:** Before any file modification, verify the file is in a git-tracked directory:
+
 ```bash
 cd $(dirname FILE) && git rev-parse --git-dir
 ```
@@ -237,7 +245,7 @@ cd $(dirname FILE) && git rev-parse --git-dir
 ### Commit Frequency Guidelines
 
 | Scenario | Action |
-|----------|--------|
+| ---------- | -------- |
 | Single file fix (e.g., typo, one-line change) | Commit immediately after patch |
 | Multiple related fixes in same file | Commit after all related patches |
 | Cross-file changes for one feature | One commit for the feature |
