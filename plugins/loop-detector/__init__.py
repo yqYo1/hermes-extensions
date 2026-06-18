@@ -15,9 +15,9 @@ from .rollback import perform_rollback
 def _cfg() -> dict[str, Any]:
     """config.yaml の plugins.loop_detector セクションを取得"""
     try:
-        from hermes_cli.config import get_config
+        from hermes_cli.config import load_config
 
-        return get_config().get("plugins", {}).get("loop_detector", {})
+        return load_config().get("plugins", {}).get("loop_detector", {})
     except Exception:
         return {}
 
