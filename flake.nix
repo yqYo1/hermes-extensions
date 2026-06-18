@@ -122,29 +122,27 @@
               buildPhase = ''
                 if [ -d "${self}/.hermes/hermes-agent" ]; then
                   cp -r ${self}/.hermes/hermes-agent .hermes/hermes-agent
+                  cat > pyrightconfig.json << 'EOF'
+                  {
+                    "extraPaths": [".hermes/hermes-agent"]
+                  }
+                  EOF
+                  basedpyright \
+                    --outputjson \
+                    --project . \
+                    > basedpyright-output.json 2>&1 || true
+                  if [ -f basedpyright-output.json ]; then
+                    ERRORS=$(grep -o '"errorCount":[0-9]*' basedpyright-output.json | cut -d: -f2)
+                    echo "basedpyright: $ERRORS error(s) found"
+                    if [ "$ERRORS" -gt 0 ]; then
+                      echo "basedpyright found errors"
+                      cat basedpyright-output.json
+                      exit 1
+                    fi
+                    echo "basedpyright passed (warnings only)"
+                  fi
                 else
                   echo "Local hermes-agent not found, skipping local check"
-                  exit 0
-                fi
-                cat > pyrightconfig.json << 'EOF'
-                {
-                  "extraPaths": [".hermes/hermes-agent"]
-                }
-                EOF
-                basedpyright \
-                  --outputjson \
-                  --project . \
-                  > basedpyright-output.json 2>&1 || true
-                # Parse JSON output - fail only on actual errors, not warnings
-                if [ -f basedpyright-output.json ]; then
-                  ERRORS=$(grep -o '"errorCount":[0-9]*' basedpyright-output.json | cut -d: -f2)
-                  echo "basedpyright: $ERRORS error(s) found"
-                  if [ "$ERRORS" -gt 0 ]; then
-                    echo "basedpyright found errors"
-                    cat basedpyright-output.json
-                    exit 1
-                  fi
-                  echo "basedpyright passed (warnings only)"
                 fi
               '';
               installPhase = "mkdir -p $out";
