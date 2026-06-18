@@ -178,7 +178,10 @@
             textlint = pkgs.stdenv.mkDerivation {
               name = "textlint-check";
               src = self;
-              nativeBuildInputs = [ pkgs.nodejs pkgs.textlint ];
+              nativeBuildInputs = [
+                pkgs.nodejs
+                pkgs.textlint
+              ];
               buildPhase = ''
                 textlint --rulesdir textlint-rules "**/*.md" || {
                   echo "textlint found issues"
