@@ -122,11 +122,7 @@
               buildPhase = ''
                 if [ -d "${self}/.hermes/hermes-agent" ]; then
                   cp -r ${self}/.hermes/hermes-agent .hermes/hermes-agent
-                  cat > pyrightconfig.json << 'EOF'
-                  {
-                    "extraPaths": [".hermes/hermes-agent"]
-                  }
-                  EOF
+                  printf '%s\n' '{"extraPaths": [".hermes/hermes-agent"]}' > pyrightconfig.json
                   basedpyright \
                     --outputjson \
                     --project . \
