@@ -144,8 +144,9 @@
                 else
                   echo "Local hermes-agent not found, skipping local check"
                 fi
+                mkdir -p "$out"
               '';
-              installPhase = "mkdir -p $out";
+              installPhase = "true";
             };
 
             # Ty check (experimental - allowed to fail)
