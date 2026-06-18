@@ -146,7 +146,7 @@
                 fi
                 mkdir -p "$out"
               '';
-              installPhase = "true";
+              installPhase = "mkdir -p $out";
             };
 
             # Ty check (experimental - allowed to fail)
