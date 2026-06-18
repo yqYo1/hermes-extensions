@@ -1,9 +1,8 @@
----
 name: browser-localhost-block
 version: 1.0.0
 description: >
-  Blocks browser tools from accessing localhost/127.0.0.1 and suggests
-  using the tailscale IP instead.
+  Blocks browser tools from accessing localhost/127.0.0.1 and suggests using the tailscale IP instead.
+
 author: yqYo1
 license: MIT
 metadata:

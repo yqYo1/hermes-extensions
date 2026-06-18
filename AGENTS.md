@@ -1,6 +1,7 @@
 # AGENTS.md
 
 ## Session Directives (Auto-captured)
+
 - [2026-06-15] nix-first workflow
 - [2026-06-15] pytest for testing
 - [2026-06-15] type hints required
@@ -12,7 +13,7 @@ This project uses nix flake with treefmt-nix for formatting and nix flake check 
 ### Current Tools
 
 | File Type | Formatter | Linter |
-|-----------|-----------|--------|
+| ----------- | ----------- | -------- |
 | Nix | nixfmt | statix, deadnix |
 | Python | ruff-format | ruff-check, basedpyright, ty |
 | YAML | yamlfmt | yamllint, actionlint |
@@ -47,7 +48,7 @@ This project uses nix flake with treefmt-nix for formatting and nix flake check 
 When new file types are introduced, add the following tools:
 
 | File Type | Formatter | Linter |
-|-----------|-----------|--------|
+| ----------- | ----------- | -------- |
 | TOML | taplo | taplo |
 | JSON | jsonfmt | - |
 | Shell | shfmt | shellcheck |

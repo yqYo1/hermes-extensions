@@ -1,11 +1,9 @@
 name: CI
-
 on:
   push:
     branches: [main]
   pull_request:
     branches: [main]
-
 jobs:
   # Format check - must pass
   format:
@@ -13,52 +11,43 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-
       - name: Install Nix
         uses: DeterminateSystems/nix-installer-action@main
-
       - name: Run treefmt
         run: nix fmt -- --fail-on-change --no-cache
-
   # Lint checks
   lint:
     name: Lint Checks
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-
       - name: Install Nix
         uses: DeterminateSystems/nix-installer-action@main
-
       # Typos check - must pass
       - name: Check typos
         run: nix build .#checks.x86_64-linux.typos
-
-      # Basedpyright check - must pass
-      - name: Run basedpyright
-        run: nix build .#checks.x86_64-linux.basedpyright
-
+      # Basedpyright check against latest hermes-agent - must pass
+      - name: Run basedpyright (latest hermes-agent)
+        run: nix build .#checks.x86_64-linux.basedpyright-latest
+      # Basedpyright check against local hermes-agent - must pass
+      - name: Run basedpyright (local hermes-agent)
+        run: nix build .#checks.x86_64-linux.basedpyright-local
       # Ty check - experimental, allowed to fail
       - name: Run ty (experimental)
         continue-on-error: true
         run: nix build .#checks.x86_64-linux.ty
-
       # Markdownlint check - must pass
       - name: Run markdownlint
         run: nix build .#checks.x86_64-linux.markdownlint
-
       # Textlint check - must pass
       - name: Run textlint
         run: nix build .#checks.x86_64-linux.textlint
-
       # Yamllint check - must pass
       - name: Run yamllint
         run: nix build .#checks.x86_64-linux.yamllint
-
       # Actionlint check - must pass
       - name: Run actionlint
         run: nix build .#checks.x86_64-linux.actionlint
-
       # Kakehashi check - markdown code block formatting
       - name: Run kakehashi
         run: nix build .#checks.x86_64-linux.kakehashi

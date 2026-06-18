@@ -26,11 +26,13 @@ hermes-extensions/
 Blocks browser tools from accessing localhost/127.0.0.1 and suggests using the tailscale IP instead.
 
 **Purpose:**
+
 - The browser backend runs on a separate instance from Hermes
 - localhost would target the browser backend's own localhost, not the Hermes instance
 - Enforces using tailscale IP (100.64.x.x) for cross-instance access
 
 **Behavior:**
+
 - Detects localhost/127.0.0.1 URLs in browser tool calls
 - Dynamically retrieves the tailscale IP when blocking
 - Returns error message with the tailscale IP as an alternative
@@ -40,10 +42,12 @@ Blocks browser tools from accessing localhost/127.0.0.1 and suggests using the t
 Blocks `delegate_task` calls that specify a limited `toolsets` parameter.
 
 **Purpose:**
+
 - Forces subagents to inherit the parent's full toolset
 - Prevents unintended capability restrictions
 
 **Behavior:**
+
 - Blocks when `toolsets` parameter is present in `delegate_task`
 - Error message is sent to the LLM as well, prompting a retry
 
