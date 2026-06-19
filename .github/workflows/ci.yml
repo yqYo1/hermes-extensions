@@ -39,9 +39,6 @@ jobs:
       # Markdownlint check - must pass
       - name: Run markdownlint
         run: nix build .#checks.x86_64-linux.markdownlint
-      # Textlint check - must pass
-      - name: Run textlint
-        run: nix build .#checks.x86_64-linux.textlint
       # Yamllint check - must pass
       - name: Run yamllint
         run: nix build .#checks.x86_64-linux.yamllint

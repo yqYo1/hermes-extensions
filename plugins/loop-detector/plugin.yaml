@@ -1,8 +1,6 @@
 name: loop-detector
 version: 1.1.0
-description: >
-  Detects LLM thinking loops and tool-call loops, confirms with LLM before rollback.
-
+description: "Detects LLM thinking loops and tool-call loops, confirms with LLM before rollback."
 author: yqYo1
 license: MIT
 hooks:

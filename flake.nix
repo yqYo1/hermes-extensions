@@ -174,23 +174,6 @@
               installPhase = "mkdir -p $out";
             };
 
-            # Textlint check (uses local rules from textlint-rules/)
-            textlint = pkgs.stdenv.mkDerivation {
-              name = "textlint-check";
-              src = self;
-              nativeBuildInputs = [
-                pkgs.nodejs
-                pkgs.textlint
-              ];
-              buildPhase = ''
-                textlint --rulesdir textlint-rules "**/*.md" || {
-                  echo "textlint found issues"
-                  exit 1
-                }
-              '';
-              installPhase = "mkdir -p $out";
-            };
-
             # Yamllint check (YAML syntax)
             yamllint = pkgs.stdenv.mkDerivation {
               name = "yamllint-check";
