@@ -174,16 +174,13 @@
               installPhase = "mkdir -p $out";
             };
 
-            # Textlint check (uses local rules from textlint-rules/)
+            # Textlint check
             textlint = pkgs.stdenv.mkDerivation {
               name = "textlint-check";
               src = self;
-              nativeBuildInputs = [
-                pkgs.nodejs
-                pkgs.textlint
-              ];
+              nativeBuildInputs = [ pkgs.textlint ];
               buildPhase = ''
-                textlint --rulesdir textlint-rules "**/*.md" || {
+                textlint "**/*.md" || {
                   echo "textlint found issues"
                   exit 1
                 }
