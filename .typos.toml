@@ -1,2 +1,10 @@
 [files]
 extend-exclude = ["textlint-rules/*"]
+
+[default.extend-words]
+# STAP-A: H.264 Single Time Aggregation Packet (Annex B)
+STAP = "STAP"
+# cros-libva: ChromeOS libva bindings Rust crate
+cros = "cros"
+# ser: conventional pySerial variable name
+ser = "ser"
