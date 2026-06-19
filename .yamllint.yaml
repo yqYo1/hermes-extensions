@@ -7,3 +7,4 @@ rules:
     allow-non-breakable-inline-mappings: true
   # yamlfmt removes document-start markers
   document-start: disable
+  truthy: disable
