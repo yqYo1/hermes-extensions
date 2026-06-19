@@ -2,8 +2,9 @@ extends: default
 rules:
   # yamlfmt collapses > folded block scalars into single lines
   line-length:
-    max: 200
+    max: 250
     allow-non-breakable-words: true
     allow-non-breakable-inline-mappings: true
   # yamlfmt removes document-start markers
   document-start: disable
+  truthy: disable

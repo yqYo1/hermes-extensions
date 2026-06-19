@@ -1,0 +1,9 @@
+name: subagent-policy-injector
+version: 1.0.0
+description: >
+  Injects sub-agent operation policy skills as context into LLM calls via the pre_llm_call hook. Looks up configured skill names in ~/.hermes/skills/ and injects their content so sub-agents always have the correct operation policy.
+
+author: yqYo1
+license: MIT
+hooks:
+  - pre_llm_call
