@@ -16,18 +16,22 @@ Umbrella skill for software development: workflows, testing, Rust development, e
 ## Sub-Domains
 
 ### Development Workflows
+
 - **Software Development Workflow** — Planning, TDD, debugging, git workflows. See `references/software-development-workflow.md`.
 - **Subagent-Driven Development** — Execute plans via delegate_task subagents. See `references/subagent-driven-development.md`.
 
 ### Testing
+
 - **Embedded Firmware Testing** — Test embedded firmware and host-side sender code. See `references/embedded-firmware-testing.md`.
 - **Python Headless GUI Testing** — Test Python GUI code in headless environments. See `references/python-headless-gui-testing.md`.
 
 ### Rust Development
+
 - **Rust Development** — Rust application development with build-time code generation. See `references/rust-development.md`.
 - **Rust Embedded Scripting** — Embed scripting runtimes (Lua, Python) in Rust. See `references/rust-embedded-scripting.md`.
 
 ### System Design
+
 - **Extensible Event Systems** — Design event-driven hook systems with Pre/Post phases. See `references/extensible-event-systems.md`.
 - **Memory Management** — Rules for saving and managing persistent memory. See `references/memory-management.md`.
 - **System Design** — Configuration systems and documentation maintenance. See `references/system-design.md`.

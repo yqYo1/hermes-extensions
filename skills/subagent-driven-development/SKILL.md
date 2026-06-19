@@ -25,6 +25,7 @@ Use this skill when you have an implementation plan and tasks are mostly indepen
 The default policy is to use `delegate_task` for any task that can be delegated.
 
 **Key rules:**
+
 - Always use `delegate_task` unless genuinely unavailable
 - Subagent instructions MUST be written in English
 - Always include `"skills"` in toolsets (or omit to inherit)
@@ -75,6 +76,7 @@ The default policy is to use `delegate_task` for any task that can be delegated.
 ## Full Reference
 
 For complete details including:
+
 - Subagent timeout handling
 - Branch discipline for subagents
 - Context budget management

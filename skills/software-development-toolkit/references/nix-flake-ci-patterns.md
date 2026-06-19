@@ -140,12 +140,13 @@ ERRORS=$(grep -o '"errorCount":[0-9]*' basedpyright-output.json | cut -d: -f2)
 ```
 
 This is the pragmatic solution when:
+
 - Tables are valid GitHub-Flavored Markdown
 - Standard markdown renderers display them correctly
 - The table content has wide/irregular data cells that can't match header widths
 - The project uses HTML/React/Vue components for rendering
 
-**Alternative fix: Use aligned style consistently**
+### Alternative fix: Use aligned style consistently
 
 Match separator dash count to header cell width for every column:
 
@@ -162,6 +163,7 @@ Match separator dash count to header cell width for every column:
 To calculate: count the characters between the opening `|` and the next `|` in the header, including spaces. Use exactly that many dashes in the separator.
 
 **Detection command:**
+
 ```bash
 # Run markdownlint on specific files
 nix run nixpkgs#markdownlint-cli -- path/to/file.md

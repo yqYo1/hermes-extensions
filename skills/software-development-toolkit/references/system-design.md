@@ -18,6 +18,7 @@ System design workflows: configuration file systems, documentation maintenance, 
 ## When to Use
 
 Load this skill when the user wants to:
+
 - Design a configuration system for an application
 - Set up documentation maintenance workflows
 - Create or refine a SOUL.md for agent behavior
@@ -26,7 +27,7 @@ Load this skill when the user wants to:
 
 ## 1. Configuration System Design
 
-### Design Principles
+### Design Principles (Configuration)
 
 - **Static vs Dynamic**: Separate static config (files) from dynamic config (runtime)
 - **Priority Chain**: Define clear precedence (defaults < file < env < CLI args)
@@ -36,6 +37,7 @@ Load this skill when the user wants to:
 ### Configuration Patterns
 
 **Layered Configuration:**
+
 ```
 Default Config  →  File Config  →  Environment  →  CLI Args
      │                │               │              │
@@ -44,6 +46,7 @@ Default Config  →  File Config  →  Environment  →  CLI Args
 ```
 
 **Dynamic Configuration:**
+
 - Hot-reload without restart
 - Change notifications
 - Rollback capability

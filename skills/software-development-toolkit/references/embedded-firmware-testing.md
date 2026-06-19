@@ -23,6 +23,7 @@ When testing firmware for microcontrollers (RP2040/RP2350, ESP32, etc.), avoid m
 ### ❌ Don't: Mock the SDK
 
 Creating stubs for `pico/stdlib.h`, `tusb.h`, `hardware/uart.h`, etc.:
+
 - Brittle (stubs drift from real SDK)
 - Tedious (hundreds of declarations)
 - Tests the wrong thing (stub behavior, not real behavior)
@@ -30,6 +31,7 @@ Creating stubs for `pico/stdlib.h`, `tusb.h`, `hardware/uart.h`, etc.:
 ### ✅ Do: Extract Pure Logic
 
 Find the logic that doesn't actually touch hardware:
+
 - Serial protocol parsers
 - State machines
 - Command dispatchers
@@ -42,6 +44,7 @@ Move it to standalone C/C++ files with **zero SDK dependencies**.
 ### Step 1: Identify Extractable Logic
 
 Look for functions that:
+
 - Parse buffers/strings into data structures
 - Transform data formats
 - Make decisions based on parsed values
@@ -56,6 +59,7 @@ src/
 ```
 
 Keep the interface minimal:
+
 ```cpp
 #pragma once
 #include <cstdint>
@@ -78,6 +82,7 @@ void ResetGamepadState(GamepadState& state);
 ### Step 3: Wire into Firmware
 
 Original file includes and calls the extracted module:
+
 ```cpp
 #include "serial_parser.h"
 
@@ -95,6 +100,7 @@ void ParseLine(char* line) {
 ### Step 4: Preserve Original Behavior
 
 When the original code has quirks that might be intentional:
+
 - Document them in comments
 - Reproduce them exactly in the extracted code
 - Write tests that verify both the "correct" behavior and the "preserved" behavior
@@ -138,6 +144,7 @@ endif()
 ### Separate Generation from Execution
 
 Test vectors (serialized inputs + expected outputs) should be:
+
 - **Generated once** using real hardware/tooling
 - **Checked into git** as JSON files
 - **Loaded by tests** at runtime
@@ -158,6 +165,7 @@ Test vectors (serialized inputs + expected outputs) should be:
 ### Generation Tools
 
 If vectors must be captured from real serial traffic:
+
 - Use `socat` locally to capture raw bytes from the PC-side sender
 - Write a one-off Python script to convert raw bytes to JSON
 - **Never** run `socat` in CI; it belongs in a local dev script only
@@ -190,6 +198,7 @@ Once the logic is extracted, test every combinatorial surface. Don't settle for 
 ### Button Coverage Pattern
 
 For a 14-button mask, test:
+
 - **Each button individually** (14 tests)
 - **All buttons together** (1 test: `0xFFFC`)
 - **No buttons** (1 test: `0x0000`)
@@ -243,6 +252,7 @@ TEST_CASE("Left stick X transitions through all values 0..255") {
 ```
 
 Repeat for:
+
 - Each axis independently (4 loops: LX, LY, RX, RY)
 - All axes simultaneously (1 loop where all 4 values are the same)
 - Boundary values: 0, 1, 127, 128, 129, 254, 255
@@ -291,6 +301,7 @@ async fn test_hold_adds_button_state() {
 Each serial protocol format is a pure function from `SendFormat` state → output. Test exhaustively:
 
 **Default format (ASCII string):**
+
 ```rust
 #[test]
 fn test_default_empty() {
@@ -308,6 +319,7 @@ fn test_default_with_left_stick_flag() {
 ```
 
 **Qingpi format (11-byte binary):**
+
 ```rust
 #[test]
 fn test_qingpi_full_state() {
@@ -324,6 +336,7 @@ fn test_qingpi_full_state() {
 ```
 
 **3DS Controller format (6-byte binary with inverted stick encoding):**
+
 ```rust
 #[test]
 fn test_3ds_with_hat_right_and_button() {
@@ -397,6 +410,7 @@ This gives callers the ability to handle each case differently (e.g., suggest a 
 ### Format String Gotcha: `{:#08x}` in Rust
 
 `format!("{:#08x}", value)` pads to **width 8 including the `0x` prefix**, producing only 6 hex digits:
+
 - `0` → `"0x000000"` (not `"0x00000000"`)
 - `0x12` → `"0x000012"` (not `"0x00000012"`)
 

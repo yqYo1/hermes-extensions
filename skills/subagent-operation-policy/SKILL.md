@@ -68,7 +68,7 @@ When you complete the assigned task, provide:
 4. **Issues encountered** — Any blockers, errors, or unexpected findings
 5. **Status** — COMPLETED, PARTIAL (with reason), or FAILED (with reason)
 
-## Key Reference: The report should start with EXACTLY:
+## Key Reference: The report should start with EXACTLY
 
 ```
 ## Task Report

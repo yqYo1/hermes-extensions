@@ -52,6 +52,7 @@ sys.modules["tkinter"] = _mock_tk
 ## Full Production Example
 
 See `references/conftest-tkinter-mock.py` for a battle-tested `conftest.py` used in a real project (Poke-Controller Extension). It mocks:
+
 - `tkinter` and all standard widgets
 - `tkinter.filedialog`, `tkinter.messagebox`, `tkinter.simpledialog`
 - `plyer` (desktop notifications)

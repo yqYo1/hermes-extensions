@@ -21,6 +21,7 @@ Execute implementation plans by dispatching fresh subagents per task with system
 ## When to Use
 
 Use this skill when:
+
 - You have an implementation plan (from writing-plans skill or user requirements)
 - Tasks are mostly independent
 - Quality and spec compliance are important
@@ -34,6 +35,7 @@ Use this skill when:
 **Parallel execution by default:** When multiple tasks are independent, dispatch them in parallel via `delegate_task(tasks=[...])` rather than sequentially. Parallel execution is mandatory unless there is a specific reason not to: tasks sharing files, ordering dependencies, or one task building on another's results. The `max_concurrent_children` limit (default 5) is a ceiling, not a target — use as many parallel slots as the task structure allows.
 
 **Orchestration mode:** When the user says "メインエージェントはオーケーストレーターとして振る舞う" or similar, the main agent must:
+
 1. Plan and coordinate only — never write implementation code directly
 2. Dispatch all implementation to subagents via `delegate_task`
 3. Run multiple subagents in parallel for independent tasks — this is not optional, it is the expected mode of operation
@@ -41,6 +43,7 @@ Use this skill when:
 5. Only ask user questions when blocked or for genuine decisions
 
 **Sequential autonomous execution:** When the user instructs sequential phase-by-phase execution (e.g. "最初から順に最後まで順に進めて下さい" / "proceed from start to finish sequentially"), the main agent must:
+
 1. Create a todo list with all phases upfront
 2. Execute phases sequentially without asking for confirmation at each step
 3. Report progress at natural breakpoints (phase completion, major milestones)
@@ -93,12 +96,14 @@ todo([
 For EACH task in the plan:
 
 **Autonomy rule — sequential execution:** When the user has explicitly authorized autonomous sequential progression (e.g. "最初から順に最後まで順に進めて下さい" / "proceed from start to finish sequentially"), the main agent must still parallelize within each phase. Run independent tasks within a phase concurrently, then proceed to the next phase only after all parallel tasks in the current phase complete. This is sequential phase progression with parallel task execution within each phase. Only stop when:
+
 - A subagent reports critical/important issues that need fixing
 - CI checks fail after a phase
 - External state does not match subagent claims
 - The user has previously asked for confirmation at phase boundaries
 
 **Autonomy rule — general:** When the user has explicitly authorized autonomous progression (e.g. "問題が無ければどんどん次へ進んで良い" / "proceed without asking at each phase"), skip per-task confirmation. Run the implementer → spec review → quality review cycle automatically, only stopping when:
+
 - A review finds critical/important issues that need fixing
 - A task fails after 2-3 retries
 - External state (CI, tests) does not match subagent claims
@@ -252,7 +257,8 @@ git add -A && git commit -m "feat: complete [feature name] implementation"
 **Decomposition examples:**
 
 Bad: "Implement user authentication system"
-Good: 
+Good:
+
 - "Create User model with email field"
 - "Add password hashing function"  
 - "Create /login endpoint"
@@ -262,6 +268,7 @@ Good:
 ### Investigation Tasks — Split by Section and Run in Parallel
 
 When delegating **investigation or research tasks** (e.g., "investigate the codebase", "gather requirements from past sessions", "analyze UI layout details"), **split by section/topic and run in parallel** rather than creating one giant catch-all task. A single large prompt with a long list of items will:
+
 - Overwhelm the subagent's context window
 - Result in shallow coverage of each item
 - Miss items not explicitly listed in the prompt
@@ -281,6 +288,7 @@ delegate_task(goal="Investigate communication protocol and API endpoints")
 **Maximum 5 parallel tasks** per `delegate_task` call (configurable via `delegation.max_concurrent_children`). If more sections exist, batch them across multiple calls.
 
 **For each investigation task:**
+
 - Provide the specific search keywords or file paths to investigate
 - Ask the subagent to report "found" vs "not found" explicitly
 - Have the subagent quote source references (session IDs, file paths, line numbers)
@@ -351,6 +359,7 @@ After all parallel investigations complete, the parent agent synthesizes the res
 **Root cause:** Subagents may run `git checkout -b <new-branch>` or `git branch -m <new-name>` without explicit instruction, especially when they encounter merge conflicts or believe they need a "clean" branch.
 
 **Prevention — Explicit branch lock in context:**
+
 ```python
 delegate_task(
     goal="Fix CI failures on branch add-loop-detector-plugin",
@@ -370,6 +379,7 @@ delegate_task(
 ```
 
 **Recovery — Parent resets branch name:**
+
 ```bash
 # Check current branch
 git branch --show-current
@@ -390,8 +400,10 @@ git push origin HEAD:correct-branch-name --force-with-lease
 **Root cause:** You violated the user's explicit instruction to use subagents. The user wants a clean slate with subagents handling all execution.
 
 **Fix:**
+
 1. **Stop all direct work immediately**
 2. **Reset the branch/worktree** to remove your direct changes:
+
    ```bash
    # Option A: git reset (if commits not pushed)
    git reset --hard <clean-commit>
@@ -401,6 +413,7 @@ git push origin HEAD:correct-branch-name --force-with-lease
    git branch -D <branch-name>
    git worktree add .worktree/<name> -b <branch-name> origin/main
    ```
+
 3. **Delegate to subagents** with all investigation results passed in context
 4. **Never mix direct execution with delegated work** in the same session
 
@@ -411,6 +424,7 @@ git push origin HEAD:correct-branch-name --force-with-lease
 **Root cause:** Subagents run in isolated environments and may not have the same filesystem view or working directory as the parent. The `workdir` parameter in `delegate_task` sets the working directory, but the subagent may still fail to resolve paths if it tries to navigate relative to a different root. **Critical:** Subagents may also write files to a DIFFERENT path than intended (e.g., missing `ghq/github.com/` prefix), causing files to appear "lost".
 
 **Fix — Always provide absolute paths in subagent context:**
+
 ```python
 delegate_task(
     goal="Fix F5 shortcut in CommandActions.svelte",
@@ -436,6 +450,7 @@ delegate_task(
 **Root cause:** Subagents may resolve relative paths or partial paths differently than the parent, especially when the `workdir` parameter and the subagent's actual working directory diverge.
 
 **Prevention — Explicit path verification in task:**
+
 ```python
 delegate_task(
     goal="Create docs/script/guide.md",
@@ -453,6 +468,7 @@ delegate_task(
 ```
 
 **Recovery — Parent finds and moves the file:**
+
 ```bash
 # Find the file anywhere under /home/yayoi
 find /home/yayoi -name "guide.md" -path "*Poke-Controller-Modified-Extension*" 2>/dev/null
@@ -466,6 +482,7 @@ mv /wrong/path/guide.md /correct/path/guide.md
 ### If Newly Created Files Are Ignored by .gitignore
 
 **Symptom:** After creating new files (especially in directories like `docs/`, `assets/`, `dist/`), `git add` reports:
+
 ```
 The following paths are ignored by one of your .gitignore files:
 docs
@@ -475,12 +492,14 @@ hint: Use -f if you really want to add them.
 **Root cause:** Many projects have broad .gitignore patterns (e.g., `docs/`, `build/`, `dist/`) that match directories used for generated artifacts. When you create source/documentation files in those directories, git ignores them.
 
 **Fix — Force add with -f:**
+
 ```bash
 git add -f docs/  # Force add ignored files
 git add -f path/to/file.md
 ```
 
 **Alternative — Update .gitignore with exception:**
+
 ```gitignore
 # Ignore generated docs but keep source docs
 /docs/build/
@@ -489,6 +508,7 @@ git add -f path/to/file.md
 ```
 
 **Prevention:** Before creating files in a directory, check if it's ignored:
+
 ```bash
 git check-ignore -v docs/  # Shows which .gitignore rule matches
 ```
@@ -500,6 +520,7 @@ git check-ignore -v docs/  # Shows which .gitignore rule matches
 **Root cause:** Subagents run in isolated contexts but share the same filesystem. When a subagent writes to a file, the parent's in-context copy of that file's content becomes outdated.
 
 **Fix — Re-read before editing:**
+
 ```python
 # Parent read file earlier
 read_file("web/src/lib/components/NavBar.svelte")
@@ -524,6 +545,7 @@ patch("web/src/lib/components/NavBar.svelte", old_string=..., new_string=...)
 When delegating verification or review tasks to subagents, **the subagent must receive only the information needed for the task** — not the full history of corrections, design decisions, or implementation context.
 
 **Why this matters:**
+
 - Subagents given full context will look for "code vs spec discrepancies" instead of "is the spec self-contained?"
 - Past corrections bias the subagent to accept ambiguities that a fresh reader would question
 - The goal is to discover what a new implementer would misunderstand, not to validate past work
@@ -582,6 +604,7 @@ This produces "compliance checking" instead of "fresh eyes validation."
 When auditing a specification document (e.g., SPECIFICATION.md) for completeness and consistency:
 
 **Phase 1 — Subagent broad audit (parallel):**
+
 - Dispatch 3-5 parallel subagents, each focusing on a different aspect:
   - Section numbering (duplicates, gaps, misnumbering)
   - Terminology consistency (search for conflicting terms)
@@ -591,12 +614,14 @@ When auditing a specification document (e.g., SPECIFICATION.md) for completeness
 - Each subagent reports specific line numbers and suggested fixes
 
 **Phase 2 — Autonomous fixes (no grill-me needed):**
+
 - Fix typos, formatting issues, broken cross-references immediately
 - Fix section numbering without asking
 - Unify terminology when one term is clearly dominant
 - Add missing type annotations based on implementation code
 
 **Phase 3 — grill-me for design decisions:**
+
 - For API design questions (return types, parameter choices, overload designs)
 - For architectural decisions (new features vs main branch compatibility)
 - For ambiguous requirements that could have multiple valid interpretations
@@ -604,6 +629,7 @@ When auditing a specification document (e.g., SPECIFICATION.md) for completeness
 - **CRITICAL**: One question per message, with recommended answer and reasoning
 
 **Phase 4 — Verification:**
+
 - Re-read the modified spec to ensure all fixes are consistent
 - Run nix fmt and commit after each significant fix group
 - Push after EVERY commit
@@ -636,6 +662,7 @@ When the user instructs autonomous fixing (e.g., "修正すべき問題が発見
 When the user asks for implementation based on past design decisions (e.g., "create function X" where X was discussed in a previous session), follow this two-phase pattern:
 
 **Phase 1 — Delegate broad search to subagent:**
+
 ```python
 delegate_task(
     goal="Find past sessions where [topic] was discussed",
@@ -650,6 +677,7 @@ delegate_task(
 ```
 
 **Phase 2 — Main agent verifies specific sessions:**
+
 ```python
 # After subagent reports candidate sessions, verify directly
 session_search(session_id="reported-id", around_message_id=..., window=10)
@@ -657,6 +685,7 @@ session_search(session_id="reported-id", around_message_id=..., window=10)
 ```
 
 **Why this pattern:**
+
 - Subagents can perform broad keyword searches efficiently
 - Main agent retains context to verify if found sessions match the actual need
 - Prevents false claims about "finding" sessions that don't exist
@@ -669,6 +698,7 @@ session_search(session_id="reported-id", around_message_id=..., window=10)
 **Zero tolerance policy:** Never claim files were created, commits were made, or code was pushed without independent verification.
 
 **Mandatory verification after any subagent claims file creation:**
+
 ```bash
 # Always run this after subagent claims to create files
 git status --short
@@ -677,6 +707,7 @@ ls -la /path/to/claimed/file
 ```
 
 **If verification fails (file doesn't exist, commit not found):**
+
 1. Report failure honestly to user: "The subagent reported creating [file], but verification shows it does not exist."
 2. Do NOT retry with another subagent immediately
 3. Either fix directly or ask user for guidance
@@ -696,6 +727,7 @@ When subagents perform change-producing work, branch isolation is mandatory:
 This ensures parent and subagent changes never conflict and remain independently reviewable.
 
 Example:
+
 ```bash
 # Parent creates feature branch
 git checkout -b feat/rust-rewrite
@@ -716,26 +748,31 @@ git merge subagent/phase-1-serial-core
 ## Efficiency Notes
 
 **Why fresh subagent per task:**
+
 - Prevents context pollution from accumulated state
 - Each subagent gets clean, focused context
 - No confusion from prior tasks' code or reasoning
 
 **Why two-stage review:**
+
 - Spec review catches under/over-building early
 - Quality review ensures the implementation is well-built
 - Catches issues before they compound across tasks
 
 **Model selection for subagents:**
+
 - **Investigation / research tasks**: Use cheap models (e.g., `deepseek-v4-flash` via `opencode-go`) to keep costs low while exploring the codebase or gathering information in parallel.
 - **Implementation tasks**: Use capable models that can produce correct, production-ready code.
 - **Review tasks**: Use capable models that can catch subtle issues.
 
 **Cost trade-off:**
+
 - More subagent invocations (implementer + 2 reviewers per task)
 - But catches issues early (cheaper than debugging compounded problems later)
 - Cheap models for parallel investigation make the process affordable
 
 **Parallel execution patterns:**
+
 - **Phase-level parallelism**: Run independent phases simultaneously in separate worktrees
 - **Catch-up parallelism**: When a later phase reveals unimplemented tasks from earlier phases, run the catch-up work in parallel with the current phase
 - **Multi-phase batch**: At the end of a project, run all remaining low-priority phases in parallel
@@ -747,12 +784,14 @@ git merge subagent/phase-1-serial-core
 ### With writing-plans
 
 This skill EXECUTES plans created by the writing-plans skill:
+
 1. User requirements → writing-plans → implementation plan
 2. Implementation plan → subagent-driven-development → working code
 
 ### With test-driven-development
 
 Implementer subagents should follow TDD:
+
 1. Write failing test first
 2. Implement minimal code
 3. Verify test passes
@@ -767,6 +806,7 @@ The two-stage review process IS the code review. For final integration review, u
 ### With systematic-debugging
 
 If a subagent encounters bugs during implementation:
+
 1. Follow systematic-debugging process
 2. Find root cause before fixing
 3. Write regression test
@@ -777,10 +817,12 @@ If a subagent encounters bugs during implementation:
 When a task calls for OpenCode CLI for **implementation** (autonomous coding, refactoring), **run `opencode` inside a `delegate_task` subagent**. This keeps the main agent's context clean and isolates the opencode session.
 
 **Review responsibility split:**
+
 - **Per-task implementation**: Subagent runs opencode for coding work
 - **Final integration review**: PM (main agent) runs opencode **directly** before push/user presentation — see "Review Responsibility Split" section above
 
 **MANDATORY opencode review gates:**
+
 1. **Per-task**: After each implementer subagent completes — performed WITHIN the subagent workflow
 2. **Final**: Before presenting changes to the user — performed by PM directly, never skip
 3. **At natural breakpoints**: When pausing work, switching phases, or completing a major milestone — PM directly
@@ -788,6 +830,7 @@ When a task calls for OpenCode CLI for **implementation** (autonomous coding, re
 The user explicitly requires this: "サブエージェント側に割り振ったタスク終了時やユーザーへの提出前等にも必ず行なうようにして下さい"
 
 **Example — Subagent uses opencode for implementation:**
+
 ```python
 delegate_task(
     goal="Run opencode to refactor the auth module",
@@ -802,6 +845,7 @@ delegate_task(
 ```
 
 **Example — PM runs opencode directly for final review:**
+
 ```bash
 # Main agent runs this directly, NOT via subagent
 opencode review --diff HEAD~5..HEAD
@@ -874,6 +918,7 @@ If empty, try `git diff` then `git diff HEAD~1 HEAD`.
 If `git diff --cached` is empty but `git diff` shows changes, tell the user to `git add <files>` first. If still empty, run `git status` — nothing to verify.
 
 If the diff exceeds 15,000 characters, split by file:
+
 ```bash
 git diff --name-only
 git diff HEAD -- specific_file.py
@@ -905,6 +950,7 @@ git diff --cached | grep "^+" | grep -E "execute\(f\"|\.format\(.*SELECT|\.forma
 Detect the project language and run the appropriate tools. Capture the failure count BEFORE your changes as **baseline_failures** (stash changes, run, pop). Only NEW failures introduced by your changes block the commit.
 
 **Test frameworks** (auto-detect by project files):
+
 ```bash
 # Python (pytest)
 python -m pytest --tb=no -q 2>&1 | tail -5
@@ -920,6 +966,7 @@ go test ./... 2>&1 | tail -5
 ```
 
 **Linting and type checking** (run only if installed):
+
 ```bash
 # Python
 which ruff && ruff check . 2>&1 | tail -10
@@ -1047,6 +1094,7 @@ Fix each issue precisely. Describe what you changed and why.""",
 ```
 
 After the fix agent completes, re-run Steps 1-6 (full verification cycle).
+
 - Passed: proceed to Step 8
 - Failed and attempts < 2: repeat Step 7
 - Failed after 2 attempts: escalate to user with the remaining issues and suggest `git stash` or `git reset` to undo
@@ -1121,6 +1169,7 @@ Before any execution work, run this pre-flight checklist to enforce SOUL.md beha
 ### 3-Step Threshold
 
 Tasks MAY be handled directly when ALL of the following are true:
+
 1. Estimated ≤3 tool calls total (including skill loading)
 2. NO code writing or modification involved
 3. NO research or investigation involved
@@ -1131,6 +1180,7 @@ Tasks MAY be handled directly when ALL of the following are true:
 ### Pre-Flight Checklist
 
 #### Step 1: Role Verification
+
 Ask: "Is this task planning/integration/judgment, or execution?"
 
 | If | Then |
@@ -1141,14 +1191,18 @@ Ask: "Is this task planning/integration/judgment, or execution?"
 | Simple information retrieval (1-2 tool calls) | ⚠️ Consider delegate_task |
 
 #### Step 2: Toolset Verification
+
 Before calling delegate_task, verify:
+
 - [ ] `toolsets` includes `"skills"` OR parameter is omitted entirely
 - [ ] Subagent instructions are in English
 - [ ] Instructions do NOT contain subagent-spawning directives
 - [ ] Task requires ≤3 sequential delegations
 
 #### Step 3: Review Timing Verification
+
 For any coding task, verify reviews at these mandatory points:
+
 1. [ ] Before integrating subagent results
 2. [ ] Before presenting changes to user
 3. [ ] Before pushing to remote
@@ -1160,6 +1214,7 @@ For any coding task, verify reviews at these mandatory points:
 9. [ ] After sequential phase execution — final integration review
 
 #### Step 4: CI Verification (Mandatory After Push)
+
 - [ ] Do NOT trust local tests alone — verify on GitHub
 - [ ] Use `gh run watch` or `scripts/ci-watch.sh`
 - [ ] Use `--json conclusion,status` for accurate verification
@@ -1167,7 +1222,9 @@ For any coding task, verify reviews at these mandatory points:
 - [ ] **When user explicitly says "use gh CLI" (gh CLIを使用して下さい), ALWAYS use `gh` commands instead of browser tools** — The user prefers CLI-based verification over browser navigation. Use `gh run list`, `gh run view`, `gh pr checks`, `gh pr view` etc. Browser tools are fallback only when gh CLI cannot provide the needed information.
 
 #### Step 5: Recitation Verification
+
 At end of every turn, verify:
+
 - [ ] Recitation block present (1-2 lines max)
 - [ ] Includes active rule categories
 - [ ] Includes session-specific constraints

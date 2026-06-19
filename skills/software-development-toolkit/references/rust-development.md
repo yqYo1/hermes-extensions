@@ -119,7 +119,7 @@ if functions.len() < EXPECTED_COUNT {
 
 Build script tests go in `#[cfg(test)]` module within `build.rs`. Note: `cargo test` doesn't run `build.rs` tests by default.
 
-### References
+### References (Build-Time Code Generation)
 
 - `references/lua-type-generation-example.md` — Full EmmyLua type generation from mlua API bindings
 - `references/tauri-dev-nix-setup.md` — `nix run .#tauri-dev` after crate consolidation
@@ -131,6 +131,7 @@ Build script tests go in `#[cfg(test)]` module within `build.rs`. Note: `cargo t
 When a project has many small Rust crates that are NOT intended to be published as standalone libraries, consolidate them into a single crate with feature flags.
 
 ### Before (8 crates)
+
 ```
 rust/
 ├── pokecon-events/
@@ -144,6 +145,7 @@ rust/
 ```
 
 ### After (2 crates)
+
 ```
 rust/
 ├── pokecon-core/        # All rlib crates merged
@@ -158,6 +160,7 @@ rust/
 ```
 
 ### Feature flags design
+
 ```toml
 [features]
 default = []
@@ -168,6 +171,7 @@ lua = ["dep:mlua"]
 ```
 
 ### Migration steps
+
 1. Copy all source files into subdirectories of the unified crate
 2. Rename `lib.rs` to `mod.rs` in each subdirectory
 3. Update all `use crate::` references to include the new module path
@@ -175,7 +179,8 @@ lua = ["dep:mlua"]
 5. Update dependent crates' `Cargo.toml` to use the unified crate with features
 6. Remove old crate directories
 
-### Pitfalls
+### Pitfalls (Crate Consolidation)
+
 - **Doc-test imports**: Update doc comments that use old crate names
 - **Bench files**: Move bench files into the unified crate or remove them
 - **Dev-dependencies**: Consolidate dev-dependencies
@@ -183,16 +188,18 @@ lua = ["dep:mlua"]
 - **Crate consolidation orphans**: After merging crates, update ALL consumers (workspace members, consumer `Cargo.toml`, consumer source files, feature flags, Tauri config, nix flake)
 
 ### When to consolidate
+
 - ✅ All crates are internal-only (not published to crates.io)
 - ✅ Crates have tight coupling (many cross-dependencies)
 - ✅ You want simpler dependency management or feature flags for optional components
 
 ### When NOT to consolidate
+
 - ❌ Crates are published as standalone libraries
 - ❌ Crates need different edition/rust-version requirements
 - ❌ Crates have fundamentally different build requirements (e.g., `cdylib` vs `rlib`)
 
-### References
+### References (Crate Consolidation)
 
 - `references/crate-consolidation-pattern.md` — Detailed migration guide with before/after structure
 
@@ -394,7 +401,7 @@ For direct VAAPI access without FFmpeg overhead, `cros-libva` provides safe Rust
 
 **Send Safety**: NONE of the cros-libva types implement `Send`. Use single-threaded execution or re-create per-thread.
 
-### Pitfalls
+### Pitfalls (FFmpeg/VAAPI)
 
 1. **ffmpeg-next init() race condition**: Call once at app startup, not per-encoder.
 2. **VAAPI without hwcontext**: Passing `vaapi_device` as a codec option is NOT sufficient.
@@ -405,7 +412,7 @@ For direct VAAPI access without FFmpeg overhead, `cros-libva` provides safe Rust
 7. **Hardware context lifetime**: The `AVHWDeviceContext` must outlive the encoder. Store it in the encoder struct.
 8. **ScaleContext !Send**: `ffmpeg-next`'s `ScaleContext` does NOT implement `Send`.
 
-### References
+### References (FFmpeg/VAAPI)
 
 - `references/ffmpeg-next-vaapi-complete-example.rs` — Complete working VAAPI encoder with ffmpeg-next 8.1
 - `references/vaapi-encoder-pitfalls.md` — NV12 frame copy, av_buffer_ref leak, Drop safety, str0m integration
@@ -471,6 +478,6 @@ tauriDevScript = pkgs.writeShellApplication {
 | 404 on `http://localhost:5173` | `beforeDevCommand` empty | Set `"beforeDevCommand": "cd ../web && npm run dev"` |
 | `npm: command not found` | `nodejs` missing from nix env | Add `pkgs.nodejs` to both `runtimeInputs` and `targetPkgs` |
 
-### References
+### References (Tauri Dev Environment)
 
 - `references/tauri-dev-nix-setup.md` — Full nix flake configuration for Tauri dev

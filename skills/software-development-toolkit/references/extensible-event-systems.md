@@ -17,13 +17,16 @@ Design event-driven hook systems that allow users/plugins to intercept and exten
 ## Core Design Principles
 
 ### 1. Pre/Post Phase Hooks
+
 Every hookable operation MUST expose both a **Pre** (before) and **Post** (after) phase:
+
 - **Pre hooks** run after setup/initialization is complete but BEFORE the main operation begins. In Neovim terms: `BufReadPre` fires after the buffer is created but before file content is read.
 - **Post hooks** run AFTER the main operation fully completes, including all side effects (tag generation, state updates, etc.).
 - Both phases share the same event name prefix (e.g., `CameraConnectPre`, `CameraConnectPost`)
 - Handlers subscribe to a specific phase; omitting the phase (or passing `None`) subscribes to both
 
 **Pre/Post boundary definition** (Neovim-inspired):
+
 ```
 1. Setup phase (path resolution, directory checks)
 2. Pre event fires — handlers can mutate candidate lists/state
@@ -32,18 +35,23 @@ Every hookable operation MUST expose both a **Pre** (before) and **Post** (after
 ```
 
 ### 2. Callback Argument Types
+
 All event callbacks receive a unified `dict[str, Any]` (Python) or `table` (Lua) argument:
+
 - Each event defines its own TypedDict/dataclass for the data structure
 - LSP-friendly: use `@overload` to map event names to their specific data types
 - Example: `ScriptLoadPreData` with `source_dirs` and `candidate_count`; `ScriptLoadPostData` with `commands` list
 
 ### 3. State-Based Simplicity
+
 When users need to mutate pre-operation state, prefer simple state properties over elaborate methods:
+
 - **Good**: `pokecon.state.command_candidates = [...]` (user mutates a list directly)
 - **Avoid**: `data.exclude(pattern)`, `data.include(path)` (over-engineered API)
 - Let users use standard Python/list operations rather than learning custom APIs
 
 ### 2. Distinguish System vs. User-Controllable Events
+
 Only event-ify operations that the user/script layer **cannot directly control**:
 
 | Event-ify these | DON'T event-ify these |
@@ -61,6 +69,7 @@ Only event-ify operations that the user/script layer **cannot directly control**
 When the user explicitly requests Neovim-style APIs, model the design after Neovim's actual autocmd system:
 
 **Neovim API Reference**:
+
 - `nvim_create_autocmd(event, opts)` — callback receives `ev` table `{buf, data, event, file, group, id, match}`
 - `nvim_del_autocmd(id)` — delete by handler ID
 - `nvim_create_augroup(name, {clear=true})` — create group, clear existing if `clear=true`
@@ -68,17 +77,20 @@ When the user explicitly requests Neovim-style APIs, model the design after Neov
 - `autocmd! [group] [event] [pattern]` — Vimscript clear syntax
 
 **Key Neovim behaviors to replicate**:
+
 - **augroup + autocmd! pattern**: Groups are named containers. `autocmd!` inside a group clears existing commands before adding new ones (prevents duplicate stacking on config reload).
 - **Handler ID return**: `on()` returns an opaque handler ID used for `off(id)` deletion.
 - **Event-name-based clearing**: `off_all("EventName")` clears all handlers for a specific event (like `autocmd! EventName`).
 - **Group-based clearing**: `clear("group_name")` clears all handlers in a group (like `augroup! group_name`).
 
 **Callback signature trade-off**:
+
 - Neovim passes `ev` table to callbacks. User may prefer **argumentless callbacks** to avoid designing argument structure upfront.
 - If user chooses argumentless: callbacks access event data via `pokecon.state` or global state. Document this as "default" with "argument-based" as future extension.
 - If user chooses argument-based: design `TypedDict` per event type, use `@overload` for LSP-friendly signatures.
 
 **Example (Neovim-inspired, argumentless default)**:
+
 ```python
 # Register with group
 pokecon.autocmd.on("CameraOpenPost", callback=lambda: print("opened"), group="camera")
@@ -96,11 +108,13 @@ pokecon.autocmd.off(handler_id)
 ## Architecture Components
 
 ### EventBus
+
 - Thread-safe broadcast channel (e.g., `tokio::sync::broadcast` in Rust, `asyncio.Queue` in Python)
 - Decouples event producers from consumers
 - Supports fan-out to multiple handlers
 
 ### EventRegistry
+
 - Stores handler entries with filters:
   - `event_name`: Exact match or glob/regex pattern
   - `phase`: Pre / Post / Both
@@ -109,12 +123,14 @@ pokecon.autocmd.off(handler_id)
   - `once`: Whether to auto-unsubscribe after first fire
 
 ### HandlerExecutor
+
 - Dedicated thread pool for handler execution
 - **Never block the main thread** (critical for real-time applications)
 - Per-handler timeout (default 500ms) to prevent rogue handlers from starving the system
 - Exception isolation: one handler's crash must not affect others or the main thread
 
 ### NestGuard
+
 - Prevents infinite recursion when a handler emits the same event it just handled
 - Track `(event_name, phase, thread_id)` in thread-local/context storage
 - Default max nest depth: 1 (drop recursive fires)
@@ -123,6 +139,7 @@ pokecon.autocmd.off(handler_id)
 ## API Patterns
 
 ### Python API (User-Facing)
+
 ```python
 # Subscribe to a specific phase
 self.on("CameraConnect", callback=self._on_cam, phase="Post")
@@ -146,6 +163,7 @@ self.emit("MyCustomEvent", data={"foo": "bar"})
 ```
 
 ### Rust Core (Implementation)
+
 ```rust
 pub struct Event {
     pub name: String,       // e.g., "CameraConnect"

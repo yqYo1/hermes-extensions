@@ -19,6 +19,7 @@ You have persistent memory across sessions. This skill defines what to save, whe
 ## What to Save
 
 ### ✅ Save (Durable Facts)
+
 - User preferences
 - Environment details
 - Tool quirks
@@ -27,6 +28,7 @@ You have persistent memory across sessions. This skill defines what to save, whe
 **Priority:** Save what reduces future user steering — the most valuable memory prevents the user from having to correct or remind you again.
 
 ### ❌ Do NOT Save
+
 - Task progress
 - Session outcomes
 - Completed-work logs
@@ -58,9 +60,11 @@ Do NOT save volatile specifics such as exact model names, versions, or URLs to g
 ## Special Cases
 
 ### User Interpretation Clarifications
+
 When the user corrects your understanding of a rule, policy, or their intent, save that clarification as a declarative fact so future sessions inherit the correct interpretation without requiring the user to re-explain. This is part of "user preferences" and should be saved proactively.
 
 ### Environment Facts
+
 Facts about how Hermes should operate — including memory's own purpose, delegation behavior, or tool usage patterns — are environment facts about Hermes itself and may be saved in memory when they are stable and reduce future user steering.
 
 **Note:** Procedural rules still belong in skills or `SOUL.md`; this exception is for declarative facts about Hermes's operational environment.

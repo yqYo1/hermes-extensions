@@ -26,7 +26,7 @@ Embed Lua and Python scripting runtimes in Rust applications. Covers mlua (Lua-i
 
 ## 1. Lua-in-Rust (mlua)
 
-### Workspace Setup
+### Workspace Setup (Lua)
 
 ```toml
 [workspace.dependencies]
@@ -35,6 +35,7 @@ parking_lot = { workspace = true }
 ```
 
 **Feature notes:**
+
 - `lua54` — Lua 5.4 interpreter. Use `luajit` for LuaJIT.
 - `vendored` — Bundles Lua source for portability.
 - `async` — Enables `call_async()`. Required if wrapping `Lua` behind `tokio::sync::Mutex`.
@@ -56,7 +57,7 @@ pub fn register_api(lua: &Lua) -> LuaResult<()> {
 }
 ```
 
-### Async LuaRuntime (Arc<Mutex<Lua>>)
+### Async LuaRuntime (`Arc<Mutex<Lua>>`)
 
 ```rust
 use std::sync::Arc;
@@ -157,7 +158,7 @@ impl ApiHandle {
 
 ## 2. Python-in-Rust (PyO3)
 
-### Workspace Setup
+### Workspace Setup (PyO3)
 
 ```toml
 [workspace.dependencies]
@@ -321,6 +322,7 @@ def get_scripts_dir() -> Path:
 When extending PyO3 bindings from skeleton to full API:
 
 ### Stage 0: Skeleton (Module Registration)
+
 ```rust
 #[pymodule]
 fn my_module(m: &Bound<'_, PyModule>) -> PyResult<()> {
@@ -331,12 +333,15 @@ fn my_module(m: &Bound<'_, PyModule>) -> PyResult<()> {
 ```
 
 ### Stage 1: Core Types (Enums, Simple Structs)
+
 Export Rust enums/structs with basic methods first.
 
 ### Stage 2: Callback-Based Classes
+
 Add Python-side callback registration and triggering.
 
 ### Stage 3: Delegation to Rust Core
+
 Add methods that delegate to Rust core crates. Use a lazy-initialized tokio runtime for async bridging:
 
 ```rust
@@ -354,6 +359,7 @@ fn get_runtime(&self) -> PyResult<Runtime> {
 ```
 
 ### Stage 4: Notification/Network Integration
+
 Add Discord, Line, or other external service integrations.
 
 ---

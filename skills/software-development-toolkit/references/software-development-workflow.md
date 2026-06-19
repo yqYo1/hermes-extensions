@@ -18,6 +18,7 @@ Software development lifecycle workflows: planning implementations, test-driven 
 ## When to Use
 
 Load this skill when the user wants to:
+
 - Plan an implementation (break down features into tasks)
 - Practice test-driven development
 - Debug a problem systematically
@@ -72,6 +73,7 @@ Brief description of what we're building and why.
 When refactoring or migrating code, maintain backward compatibility:
 
 **Wrapper Pattern:**
+
 ```python
 # Old API
 class OldAPI:
@@ -86,6 +88,7 @@ class NewImpl:
 ```
 
 **Metaclass Versioning:**
+
 ```python
 class APIVersion(type):
     def __new__(mcs, name, bases, namespace, version=None):
@@ -203,6 +206,7 @@ Understand → Reproduce → Isolate → Fix
 ### Session-Specific Debug Notes
 
 See `references/` directory for detailed debugging notes from past sessions:
+
 - `hermes-cron-memory-unavailable.md` — Cron job memory issues
 - `http-endpoint-testing-routing-debug.md` — HTTP routing debugging
 - `nix-egl-bad-parameter-investigation.md` — Nix EGL parameter issues
