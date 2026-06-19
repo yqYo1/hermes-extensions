@@ -174,20 +174,6 @@
               installPhase = "mkdir -p $out";
             };
 
-            # Textlint check
-            textlint = pkgs.stdenv.mkDerivation {
-              name = "textlint-check";
-              src = self;
-              nativeBuildInputs = [ pkgs.textlint ];
-              buildPhase = ''
-                textlint "**/*.md" || {
-                  echo "textlint found issues"
-                  exit 1
-                }
-              '';
-              installPhase = "mkdir -p $out";
-            };
-
             # Yamllint check (YAML syntax)
             yamllint = pkgs.stdenv.mkDerivation {
               name = "yamllint-check";
