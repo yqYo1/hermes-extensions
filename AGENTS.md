@@ -78,3 +78,23 @@ nix build .#checks.x86_64-linux.<check-name>
 # Enter development shell
 nix develop
 ```
+
+## Skill Management
+
+### Curator Eligibility
+
+This repository's skills must NOT be marked as `created_by=agent` in `~/.hermes/skills/.usage.json`. Skills with this attribute become targets for the Hermes curator (auto-archive/consolidation).
+
+**Why:** The curator treats `created_by=agent` as a signal that the skill was created by `skill_manage(action="create")` and is therefore eligible for automatic lifecycle management. Repository-managed skills should be exempt from this.
+
+**Prevention:**
+- Do NOT use `skill_manage(action="create")` for skills in this repository
+- Edit skills directly via `patch` or `write_file` instead
+- If `created_by=agent` is accidentally set, manually reset it to `null` in `.usage.json`
+
+**Verification:**
+```bash
+python3 -c "import json; d=json.load(open('~/.hermes/skills/.usage.json')); print(d.get('git-workflow',{}).get('created_by')); print(d.get('subagent-policy',{}).get('created_by'))"
+```
+
+Expected output: `None` (not `"agent"`)
