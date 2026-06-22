@@ -66,6 +66,7 @@ When you need to apply changes to the default branch (e.g., main):
 2. **Create a feature branch in a worktree**, do your work there, and push the branch to the remote.
 3. **Open a Pull Request (or Merge Request)** on the remote (GitHub, GitLab, etc.).
 4. **Merge the PR on the remote** using the web UI or API.
+   - This includes `gh pr merge` which merges the PR via the GitHub CLI.
 5. **Pull the updated default branch locally** to sync your root directory:
 
    ```bash
