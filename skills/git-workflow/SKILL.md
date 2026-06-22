@@ -247,6 +247,35 @@ md5sum ~/<repo>/.worktree/<branch>/FILE
 cd $(dirname FILE) && git rev-parse --git-dir
 ```
 
+## Worktree Cleanup
+
+### Removing Unused Worktrees
+
+When a worktree is no longer needed, remove it to prevent repository bloat:
+
+```bash
+# Remove the worktree (must be done before deleting the branch)
+git worktree remove <worktree-path>          # if clean
+git worktree remove --force <worktree-path>  # if dirty
+
+# Delete the branch
+git branch -D <branch-name>
+```
+
+### What to Remove
+
+- Worktrees for merged PRs
+- Worktrees for abandoned branches
+- Detached HEAD worktrees
+- Temporary worktrees created for experiments
+
+### What to Keep (Cleanup)
+
+- The current active worktree
+- Worktrees with open PRs
+- Worktrees explicitly requested by the user
+- The user's main working branch
+
 ## Automatic Commit & Push
 
 - **Commit and push automatically at natural work boundaries** without waiting for explicit user instruction.
