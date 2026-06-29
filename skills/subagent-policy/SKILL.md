@@ -99,8 +99,9 @@ delegate_task(
 | `toolsets=["terminal", "file", "web", "skills"]` | 指定したツールのみ（親と交差） | セキュリティ制限が必要な場合 |
 
 > **重要:** `"skills"` を含めないとサブエージェントはスキルを認識できない。
-
-> **注意（この環境特有）:** 同一リポジトリの `delegate-task-full-inheritance` プラグインが、明示的な `toolsets` パラメータをブロックする。サブエージェントは常に親のフルツールセットを継承する。`toolsets` を省略して呼び出すこと。
+>
+> **注意（この環境特有）:** 同一リポジトリの `delegate-task-full-inheritance` プラグインが、明示的な `toolsets` パラメータをブロックする。サブエージェントは常に親のフルツールセットを継承するため、`toolsets` パラメータは省略して呼び出す必要がある。
+> これにより、本ドキュメントの **§3.2、§5.1、§5.2** に記載されている `toolsets` を明示的に指定するコード例は、この環境ではすべてエラー（ブロック）となるため留意すること（スキルへのアクセスも、`toolsets` を省略することで自動的に継承される）。
 
 ### 3.3. ブロックされるツール
 
@@ -114,7 +115,7 @@ delegate_task(
 | `send_message` | クロスプラットフォーム副作用禁止 |
 | `execute_code` | 子はステップバイステップで推論すべき |
 
-オーケストレーター（`role="orchestrator"`）は `delegate_task` のみ保持し、それ以外はリーフと同じく `clarify` / `memory` / `send_message` / `execute_code` が削除される。`max_spawn_depth` によりネスト深度が制限される。
+オーケストレーター（`role="orchestrator"`）は、上記のブロック対象ツールのうち `delegate_task` のみを例外として保持し、それ以外（`clarify` / `memory` / `send_message` / `execute_code`）はリーフと同様に削除される。なお、ファイル・ターミナル等の通常ツールはリーフと同様に利用可能。`max_spawn_depth` によりネスト深度が制限される。
 
 ### 3.4. オーケストレーターとリーフの使い分け
 
