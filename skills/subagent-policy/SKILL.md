@@ -43,14 +43,18 @@ metadata:
 
 `~/.hermes/config.yaml` の `delegation` セクションで設定する。
 
-| 設定項目 | デフォルト値 | 説明 |
-| -------- | ---------- | ---- |
-| `max_concurrent_children` | 5 | 同時実行できる最大サブエージェント数 |
-| `max_spawn_depth` | 4 | サブエージェントの最大ネスト深度 |
-| `child_timeout_seconds` | 0（無制限） | サブエージェントあたりのタイムアウト（秒） |
-| `max_iterations` | 50 | サブエージェントあたりの最大イテレーション数 |
-| `orchestrator_enabled` | true | `role="orchestrator"` の有効化 |
-| `subagent_auto_approve` | false | 危険コマンドの自動承認（false=自動否認） |
+| 設定項目 | 現在の値 | コード上のデフォルト | 説明 |
+| -------- | -------- | -------------------- | ---- |
+| `max_concurrent_children` | 12 | 3 | 同期バッチあたりの最大サブエージェント数（floor 1、上限なし。>10でトークンコスト警告） |
+| `max_async_children` | 3 | 3 | バックグラウンド（background=true）サブエージェントの最大同時数（max_concurrent_childrenとは独立）。超過時はリジェクト（キューイングなし） |
+| `max_spawn_depth` | 2 | 1 | 委任ツリーの深さ上限（range 1-3 推奨、上限なし）。1=フラット、2+=ネストされたオーケストレーション |
+| `child_timeout_seconds` | 7200 | 0（無制限） | サブエージェント1つあたりの壁時計タイムアウト（秒）。0/負数=無効化。正数=ハードキャップ（floor 30s） |
+| `max_iterations` | 800 | 50 | サブエージェントあたりの最大イテレーション数 |
+| `orchestrator_enabled` | true | true | `role="orchestrator"` の有効化。falseの場合、orchestratorは暗黙にleafへ強制 |
+| `subagent_auto_approve` | false | false | 危険コマンドの自動承認（false=自動否認） |
+| `inherit_mcp_toolsets` | true | true | MCPツールセットを子に継承するか |
+
+> 上記の「現在の値」は `~/.hermes/config.yaml` の設定に基づく。コード上のデフォルトは `hermes-agent/tools/delegate_tool.py` を参照。
 
 変更方法：
 
@@ -63,19 +67,16 @@ hermes config set delegation.max_spawn_depth 2
 
 ### 2.2. 並行数の計算例
 
+現在の設定（`max_concurrent_children=12`, `max_spawn_depth=2`）での計算:
+
 ```
-Depth 1（PMが生成）: 最大12個
-Depth 2（サブエージェントが生成）: 各々が最大12個 → 12 × 12 = 144個
-Depth 3: 144 × 12 = 1,728個
-Depth 4: 1,728 × 12 = 20,736個
+Depth 0: PM（メインエージェント）
+Depth 1（PMが生成）: 最大12個のサブエージェント
+Depth 2（各サブエージェントが生成、orchestratorのみ）: 各々が最大12個 → 12 × 12 = 144個
+合計（理論最大）: 1 + 12 + 144 = 157個
 ```
 
-| 構成 | Children | Depth | 理論最大 | 用途 |
-| ---- | -------- | ----- | -------- | ---- |
-| デフォルト | 5 | 4 | 780 | バランス型 |
-| 重並列 | 12 | 2 | 156 | 多並列・浅いネスト |
-| 深オーケストレーション | 5 | 4 | 780 | 複雑な多層委任 |
-| 保守的 | 3 | 2 | 12 | リソース制限・単純タスク |
+> `max_spawn_depth` を3以上に設定すると Depth 3-4 のネストが可能になるが、トークン消費が指数関数的に増大するため推奨されない。
 
 ---
 
@@ -99,6 +100,8 @@ delegate_task(
 
 > **重要:** `"skills"` を含めないとサブエージェントはスキルを認識できない。
 
+> **注意（この環境特有）:** 同一リポジトリの `delegate-task-full-inheritance` プラグインが、明示的な `toolsets` パラメータをブロックする。サブエージェントは常に親のフルツールセットを継承する。`toolsets` を省略して呼び出すこと。
+
 ### 3.3. ブロックされるツール
 
 リーフサブエージェント（`role="leaf"`）からは以下のツールが自動的に削除される：
@@ -111,7 +114,7 @@ delegate_task(
 | `send_message` | クロスプラットフォーム副作用禁止 |
 | `execute_code` | 子はステップバイステップで推論すべき |
 
-オーケストレーター（`role="orchestrator"`）は `delegate_task` を保持できる（深度制限あり）。
+オーケストレーター（`role="orchestrator"`）は `delegate_task` のみ保持し、それ以外はリーフと同じく `clarify` / `memory` / `send_message` / `execute_code` が削除される。`max_spawn_depth` によりネスト深度が制限される。
 
 ### 3.4. オーケストレーターとリーフの使い分け
 
@@ -345,5 +348,5 @@ cat ~/.hermes/config.yaml | grep -A 20 "delegation:"
 
 ---
 
-**最終更新:** 2026-06-20
+**最終更新:** 2026-06-29
 **対象バージョン:** hermes-agent 2.0.0+
