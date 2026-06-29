@@ -100,3 +100,13 @@ python3 -c "import json; d=json.load(open('~/.hermes/skills/.usage.json')); prin
 ```
 
 Expected output: `None` (not `"agent"`)
+
+### Skill Language Policy
+
+Skills in this repository MUST be written in **English** by default.
+
+**Exception (near-mandatory):** Skills that deal with Japanese expression or writing conventions (e.g., textlint rules for Japanese prose, Japanese-specific writing style guidance) SHOULD be written in Japanese. This is an obligation, not a permission — a skill about Japanese expression written in English would defeat its own purpose.
+
+**Scope:** The policy applies to all user-facing content of a skill (description, body, examples). Code identifiers, command names, and tool names remain as-is regardless of language.
+
+**Rationale:** English is the default working language for LLM-driven skill content; consistency across skills reduces cognitive load. Japanese-expression skills are the narrow exception because their content is inherently about Japanese.
