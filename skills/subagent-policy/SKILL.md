@@ -1,7 +1,7 @@
 ---
 name: subagent-policy
 description: "Defines the usage policy, invocation patterns, constraints, and best practices for subagents (delegate_task). Covers role separation and implementation patterns, centered on SOUL.md."
-version: 1.2.0
+version: 1.1.0
 author: yaYoi
 license: MIT
 metadata:
@@ -43,24 +43,13 @@ The main agent (PM) only performs planning, decomposition, delegation decisions,
 
 | Setting | Current value | Description |
 | ------- | ------------- | ----------- |
-| `max_concurrent_children` | 12 | Max subagents per synchronous batch |
+| `max_concurrent_children` | 12 | Max subagents the PM can spawn in one synchronous batch. This is the upper bound for task splitting. |
 | `max_async_children` | 3 | Max concurrent background (background=true) subagents. Excess is rejected (no queuing) |
 | `max_spawn_depth` | 2 | Delegation tree depth cap. 1=flat, 2+=nested orchestration |
 | `orchestrator_enabled` | true | Enables `role="orchestrator"` |
 | `inherit_mcp_toolsets` | true | Whether MCP toolsets are inherited by children |
 
-> The "current value" above is based on the current `~/.hermes/config.yaml` settings. Use as input for task-splitting decisions.
-
-### 2.2. Concurrency Calculation Example
-
-Calculation under the current settings (`max_concurrent_children=12`, `max_spawn_depth=2`):
-
-```
-Depth 0: PM (main agent)
-Depth 1 (spawned by PM): up to 12 subagents
-Depth 2 (spawned by each subagent, orchestrator only): each spawns up to 12 -> 12 x 12 = 144
-Total (theoretical max): 1 + 12 + 144 = 157
-```
+> The "current value" above is based on the current `~/.hermes/config.yaml` settings.
 
 ---
 
@@ -75,16 +64,9 @@ delegate_task(
 )
 ```
 
-### 3.2. Specifying Toolsets
+### 3.2. Toolsets
 
-| Method | Behavior | Recommended case |
-| ------ | -------- | ---------------- |
-| `toolsets` omitted | Inherits parent's full toolset | Default (safest) |
-| `toolsets=["terminal", "file", "web", "skills"]` | Only specified tools (intersected with parent) | When security restriction is required |
-
-> **Important:** Without `"skills"`, the subagent cannot recognize skills.
->
-> **Note (specific to this environment):** The `delegate-task-full-inheritance` plugin in this repository blocks explicit `toolsets` parameters. Subagents always inherit the parent's full toolset, so the `toolsets` parameter must be omitted. Any code example in this document that explicitly specifies `toolsets` will error (be blocked) in this environment.
+The `toolsets` parameter cannot be specified; it is rejected at runtime. Always omit it. Subagents inherit the parent's full toolset, including skills.
 
 ### 3.3. Blocked Tools
 
@@ -98,7 +80,9 @@ The following tools are automatically removed from leaf subagents (`role="leaf"`
 | `send_message` | No cross-platform side effects |
 | `execute_code` | Children should reason step-by-step |
 
-Orchestrators (`role="orchestrator"`) retain only `delegate_task` as an exception from the blocked list above; the rest (`clarify` / `memory` / `send_message` / `execute_code`) are removed just like leaf subagents. Standard tools such as file and terminal are available the same as for leaf subagents. Nesting depth is bounded by `max_spawn_depth`.
+Orchestrators (`role="orchestrator"`) retain only `delegate_task` as an exception from the blocked list above; the rest (`clarify` / `memory` / `send_message` / `execute_code`) are removed just like leaf subagents.
+Standard tools such as file and terminal are available the same as for leaf subagents.
+Nesting depth is bounded by `max_spawn_depth`.
 
 ### 3.4. Choosing Between Orchestrator and Leaf
 
@@ -162,28 +146,7 @@ delegate_task(
 
 > **Note:** Because `context` is placed in the middle of the system prompt, it can degrade due to "lost in the middle" effects in long sessions. Keep critical rules concise and near the beginning.
 
-### 5.2. Accessing Skills
-
-To let a subagent recognize skills, one of the following is required:
-
-1. Omit the `toolsets` parameter entirely (inherits parent's full toolset)
-2. Explicitly include `"skills"` in the `toolsets` array
-
-```python
-# Good: skill access allowed
-delegate_task(
-    goal="Review using the opencode skill",
-    toolsets=["terminal", "file", "skills"]
-)
-
-# Bad: skill access lost
-delegate_task(
-    goal="Review using the opencode skill",
-    toolsets=["terminal", "file"]  # no skills!
-)
-```
-
-### 5.3. Worktree and Branch Management
+### 5.2. Worktree and Branch Management
 
 Subagents may create many temporary branches and worktrees.
 
