@@ -1,7 +1,7 @@
 ---
 name: subagent-policy
 description: "サブエージェント（delegate_task）の利用方針、使い方、制約、ベストプラクティスを定義するスキル。SOUL.mdとsubagent-driven-developmentを中心に、サブエージェントの役割分担から実装パターンまでを網羅的に記述する。"
-version: 1.0.0
+version: 1.0.1
 author: yaYoi
 license: MIT
 metadata:
