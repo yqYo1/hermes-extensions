@@ -1,7 +1,7 @@
 ---
 name: subagent-policy
 description: "サブエージェント（delegate_task）の利用方針、使い方、制約、ベストプラクティスを定義するスキル。SOUL.mdとsubagent-driven-developmentを中心に、サブエージェントの役割分担から実装パターンまでを網羅的に記述する。"
-version: 1.0.1
+version: 1.1.0
 author: yaYoi
 license: MIT
 metadata:
@@ -41,29 +41,15 @@ metadata:
 
 ### 2.1. 並行性設定
 
-`~/.hermes/config.yaml` の `delegation` セクションで設定する。
+| 設定項目 | 現在の値 | 説明 |
+| -------- | -------- | ---- |
+| `max_concurrent_children` | 12 | 同期バッチあたりの最大サブエージェント数 |
+| `max_async_children` | 3 | バックグラウンド（background=true）サブエージェントの最大同時数。超過時はリジェクト（キューイングなし） |
+| `max_spawn_depth` | 2 | 委任ツリーの深さ上限。1=フラット、2+=ネストされたオーケストレーション |
+| `orchestrator_enabled` | true | `role="orchestrator"` の有効化 |
+| `inherit_mcp_toolsets` | true | MCPツールセットを子に継承するか |
 
-| 設定項目 | 現在の値 | コード上のデフォルト | 説明 |
-| -------- | -------- | -------------------- | ---- |
-| `max_concurrent_children` | 12 | 3 | 同期バッチあたりの最大サブエージェント数（floor 1、上限なし。>10でトークンコスト警告） |
-| `max_async_children` | 3 | 3 | バックグラウンド（background=true）サブエージェントの最大同時数（max_concurrent_childrenとは独立）。超過時はリジェクト（キューイングなし） |
-| `max_spawn_depth` | 2 | 1 | 委任ツリーの深さ上限（range 1-3 推奨、上限なし）。1=フラット、2+=ネストされたオーケストレーション |
-| `child_timeout_seconds` | 7200 | 0（無制限） | サブエージェント1つあたりの壁時計タイムアウト（秒）。0/負数=無効化。正数=ハードキャップ（floor 30s） |
-| `max_iterations` | 800 | 50 | サブエージェントあたりの最大イテレーション数 |
-| `orchestrator_enabled` | true | true | `role="orchestrator"` の有効化。falseの場合、orchestratorは暗黙にleafへ強制 |
-| `subagent_auto_approve` | false | false | 危険コマンドの自動承認（false=自動否認） |
-| `inherit_mcp_toolsets` | true | true | MCPツールセットを子に継承するか |
-
-> 上記の「現在の値」は `~/.hermes/config.yaml` の設定に基づく。コード上のデフォルトは `hermes-agent/tools/delegate_tool.py` を参照。
-
-変更方法：
-
-```bash
-hermes config set delegation.max_concurrent_children 12
-hermes config set delegation.max_spawn_depth 2
-```
-
-> **注意:** 変更は新しいセッションから有効。既存セッションには反映されない。
+> 上記の「現在の値」は `~/.hermes/config.yaml` の現在の設定に基づく。タスク分割の判断材料として参照すること。
 
 ### 2.2. 並行数の計算例
 
@@ -75,8 +61,6 @@ Depth 1（PMが生成）: 最大12個のサブエージェント
 Depth 2（各サブエージェントが生成、orchestratorのみ）: 各々が最大12個 → 12 × 12 = 144個
 合計（理論最大）: 1 + 12 + 144 = 157個
 ```
-
-> `max_spawn_depth` を3以上に設定すると Depth 3-4 のネストが可能になるが、トークン消費が指数関数的に増大するため推奨されない。
 
 ---
 
@@ -100,8 +84,7 @@ delegate_task(
 
 > **重要:** `"skills"` を含めないとサブエージェントはスキルを認識できない。
 >
-> **注意（この環境特有）:** 同一リポジトリの `delegate-task-full-inheritance` プラグインが、明示的な `toolsets` パラメータをブロックする。サブエージェントは常に親のフルツールセットを継承するため、`toolsets` パラメータは省略して呼び出す必要がある。
-> これにより、本ドキュメントの **§3.2、§5.1、§5.2** に記載されている `toolsets` を明示的に指定するコード例は、この環境ではすべてエラー（ブロック）となるため留意すること（スキルへのアクセスも、`toolsets` を省略することで自動的に継承される）。
+> **注意（この環境特有）:** 同一リポジトリの `delegate-task-full-inheritance` プラグインが、明示的な `toolsets` パラメータをブロックする。サブエージェントは常に親のフルツールセットを継承するため、`toolsets` パラメータは省略して呼び出す必要がある。本ドキュメント中の `toolsets` を明示的に指定するコード例は、この環境ではすべてエラー（ブロック）となる。
 
 ### 3.3. ブロックされるツール
 
@@ -150,14 +133,6 @@ delegate_task(
 | プラグインフック | ✅ 発火する | ❌ 発火しない | フック内の処理は親で完結させる |
 | フォールバックプロバイダー | ✅ 有効 | ❌ 継承されない | プロキシ側で設定 |
 
-### 4.2. タイムアウトとリソース
-
-| 項目 | デフォルト | 備考 |
-| ---- | ---------- | ---- |
-| ハードタイムアウト | 600秒 | `child_timeout_seconds` で変更 |
-| 0-APIコール診断 | 自動 | `~/.hermes/logs/subagent-timeout-*.log` に出力 |
-| ハートビート | 30秒間隔 | 150秒アイドルまたは600秒同ツールで停止 |
-
 ---
 
 ## 5. ベストプラクティス
@@ -181,8 +156,7 @@ delegate_task(
         "\n"
         "ORIGINAL TASK CONTEXT:\n"
         "[... actual task context here ...]"
-    ),
-    toolsets=["terminal", "file", "web", "skills"]
+    )
 )
 ```
 
@@ -194,8 +168,6 @@ delegate_task(
 
 1. `toolsets` パラメータを完全に省略（親のフルツールセットを継承）
 2. `toolsets` 配列に `"skills"` を明示的に含める
-
-**対処:** `toolsets`を省略するか、`"skills"`を含める。
 
 ```python
 # 良い例: スキルアクセスを許可
@@ -220,101 +192,9 @@ delegate_task(
 - 単一ブランチ命名規則を使用するよう指示
 - 並列性が必要な場合のみ複数ブランチを作成
 
-**クリーンアップ手順:**
-
-```bash
-# すべてのローカルブランチを一覧（main/defaultを除く）
-git branch | grep -v "main\|develop"
-
-# すべてのリモートブランチを一覧
-git branch -r
-
-# リモート一時ブランチを削除
-git push origin --delete <temp-branch-1> <temp-branch-2> ...
-
-# ローカルワークツリーを削除（ブランチ削除前にワークツリーを削除）
-git worktree remove <worktree-path>          # クリーンな場合
-git worktree remove --force <worktree-path>  # ダーティな場合
-
-# ローカルブランチを削除
-git branch -D <temp-branch-1> <temp-branch-2> ...
-```
-
 ---
 
-## 6. トラブルシューティング
-
-### 6.1. サブエージェントがスキルを認識しない
-
-**症状:** サブエージェントに「`opencode`スキルを使用して」と指示しても、`skill_view`を呼ばず、スキルが存在しないと主張する。
-
-**原因:** `toolsets`に`"skills"`が含まれていない。
-
-**対処:** `toolsets`を省略するか、`"skills"`を含める。
-
-### 6.2. Copilot ACP ルーティングエラー
-
-**症状:**
-
-```
-[subagent-0] API call failed after 3 retries. Could not start Copilot ACP command 'claude'.
-```
-
-**原因:** プロバイダー解決が`command`フィールドを返し、子が`copilot-acp`に強制ルーティングされる。
-
-**対処:** プロバイダーのランタイムエントリーが`command`フィールドを返さないようにする。`.env`にAPIキーが設定されていることを確認。
-
-### 6.3. タイムアウト
-
-**症状:** サブエージェントが600秒でタイムアウトする。
-
-**原因:** `child_timeout_seconds`のデフォルトは0（無制限）だが、ドキュメントでは600秒と記載されている場合がある。実際のコードでは0が無制限を意味する。
-
-**対処:** `~/.hermes/config.yaml`で`child_timeout_seconds`を確認・設定する。
-
-```bash
-hermes config set delegation.child_timeout_seconds 0  # 無制限
-```
-
----
-
-## 7. レビューとトリアージ
-
-### 7.1. サブエージェントのレビュー結果の扱い
-
-サブエージェントは深刻度を誤って分類する傾向がある。PMが再分類する必要がある。
-
-| サブエージェントの判断 | 実際のカテゴリ | 対処 |
-| ---------------------- | -------------- | ---- |
-| P0（重大） | 仕様内部の矛盾 | 即座に修正 |
-| P0（重大） | 仕様が実装を先行 | 「将来の作業」として文書化 |
-| P1（高） | 実装をブロックする曖昧さ | grill-meで決定 |
-| P2（改善） | 構造的改善 | 次の改訂でスケジュール |
-
-### 7.2. トリアージ決定木
-
-```
-サブエージェントが発見を報告
-├── 仕様内部の矛盾か？
-│   ├── 同じセクションが自身と矛盾？ → P0、即座に修正
-│   └── 異なるセクションが互いに矛盾？ → P0、即座に修正
-├── 仕様と実装の間のギャップか？
-│   ├── 仕様がgrill-meの決定と一致？ → 実装が更新を必要
-│   ├── 実装がgrill-meの決定と一致？ → 仕様が更新を必要（P1）
-│   └── どちらもgrill-meと一致しない？ → grill-meで決定（P1）
-├── 「欠落した」機能/APIか？
-│   ├── grill-meで明示的に決定？ → 仕様に含まれるべき（P1）
-│   ├── grill-meで明示的に拒否？ → サブエージェントは間違い（無視）
-│   └── 議論されたことがない？ → スコープ外の可能性（延期）
-└── スタイル/一貫性の問題か？
-    ├── 用語の不一致？ → 自律的に修正（P2）
-    ├── 例のスタイルが異なる？ → 自律的に修正（P2）
-    └── サブエージェントの個人的な好み？ → 無視
-```
-
----
-
-## 8. 関連スキル
+## 6. 関連スキル
 
 | スキル | 役割 |
 | ------ | ---- |
@@ -322,32 +202,3 @@ hermes config set delegation.child_timeout_seconds 0  # 無制限
 | `git-workflow` | ghq + worktreeモード、ブランチ管理、PR規約 |
 | `specification-authoring` | 仕様書の作成、監査、レビュー |
 | `opencode` | OpenCode CLIを使用したコードレビュー、実装 |
-
----
-
-## 9. 参考情報
-
-### 9.1. ソースコード参照
-
-| ファイル | 行 | 内容 |
-| -------- | ---- | ---- |
-| `tools/delegate_tool.py` | 1229 | `skip_memory=True`（ハードコード） |
-| `tools/delegate_tool.py` | 1228 | `skip_context_files=True`（ハードコード） |
-| `tools/delegate_tool.py` | 564 | `_build_child_system_prompt()` 実装 |
-| `tools/delegate_tool.py` | 1101 | `AIAgent(..., skip_memory=True, skip_context_files=True)` |
-| `hermes_cli/config.py` | - | `delegation` セクションのデフォルト値 |
-
-### 9.2. 設定確認コマンド
-
-```bash
-# 現在のdelegation設定を確認
-hermes config show | grep -A 15 "delegation:"
-
-# 直接config.yamlを確認
-cat ~/.hermes/config.yaml | grep -A 20 "delegation:"
-```
-
----
-
-**最終更新:** 2026-06-29
-**対象バージョン:** hermes-agent 2.0.0+
