@@ -105,8 +105,32 @@ Expected output: `None` (not `"agent"`)
 
 Skills in this repository MUST be written in **English** by default.
 
-**Exception (near-mandatory):** Skills that deal with Japanese expression or writing conventions (e.g., textlint rules for Japanese prose, Japanese-specific writing style guidance) SHOULD be written in Japanese. This is an obligation, not a permission — a skill about Japanese expression written in English would defeat its own purpose.
+**Exception (near-mandatory):** Skills that deal with Japanese expression or writing conventions (e.g., textlint rules for Japanese prose, Japanese-specific writing style guidance) SHOULD be written in Japanese.
+This is an obligation, not a permission — a skill about Japanese expression written in English would defeat its own purpose.
 
 **Scope:** The policy applies to all user-facing content of a skill (description, body, examples). Code identifiers, command names, and tool names remain as-is regardless of language.
 
 **Rationale:** English is the default working language for LLM-driven skill content; consistency across skills reduces cognitive load. Japanese-expression skills are the narrow exception because their content is inherently about Japanese.
+
+### Skill Versioning Policy
+
+Skill versions use [Semantic Versioning](https://semver.org/) (`MAJOR.MINOR.PATCH`).
+
+**Baseline:** The version on the `main` branch is the baseline. A PR bumps the version **once** based on the cumulative change in that PR, regardless of how many commits the PR contains.
+
+**Which part to bump:**
+
+| Change type | Bump | Examples |
+| ----------- | ---- | -------- |
+| Breaking change / loss of backward compatibility | MAJOR | Remove a documented section, rename the skill, change semantics |
+| Backward-compatible feature addition / info addition | MINOR | Add a new section, add new config rows, complete previously-incomplete info |
+| Bug fix / correction / formatting | PATCH | Correct wrong values, fix typos, wrap long lines |
+
+**Procedure:**
+
+1. Read the version currently on `main` (the baseline).
+2. Classify the PR's net change against the table above.
+3. Increment exactly one component by 1 (do not compound per-commit bumps).
+4. Set the resulting version in the skill's frontmatter.
+
+**Example:** If `main` has `1.0.0` and a PR both corrects wrong values (patch) and adds new config rows (minor), the PR publishes `1.1.0` — not `1.0.1` or `1.2.0`.
