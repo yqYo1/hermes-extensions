@@ -29,6 +29,8 @@ _ZAI_HOSTNAMES = frozenset(
     {
         "api.z.ai",
         "open.bigmodel.cn",
+        "z.ai",
+        "bigmodel.cn",
     }
 )
 
