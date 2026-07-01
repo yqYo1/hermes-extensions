@@ -166,7 +166,7 @@ zai = ZaiProfile(
         "glm-5",
         "glm-4-9b",
     ),
-    base_url="https://api.z.ai/api/paas/v4",
+    base_url="https://api.z.ai/api/coding/paas/v4",
     default_aux_model="glm-4.5-flash",
     default_headers={"User-Agent": "hermes-agent/1.0"},
 )
