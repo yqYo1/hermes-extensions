@@ -1,6 +1,6 @@
 name: zai-custom
 kind: model-provider
-version: 1.0.0
+version: 1.0.1
 description: "Custom Z.AI / GLM provider — reasoning_effort mapping, header override, prompt sanitization"
 author: yqYo1
 license: MIT

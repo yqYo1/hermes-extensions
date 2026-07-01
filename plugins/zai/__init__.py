@@ -63,6 +63,8 @@ _HERMES_TO_GLM_EFFORT: dict[str, str] = {
     "low": "high",
     "medium": "high",
     "high": "high",
+    "max": "max",
+    "maximum": "max",
     "xhigh": "max",
 }
 
@@ -71,6 +73,11 @@ def _map_reasoning_effort(
     effort: str | None,
 ) -> tuple[dict[str, Any], dict[str, Any]]:
     """Map a Hermes reasoning effort to GLM-5.2 parameters.
+
+    ``reasoning_effort`` is sent via ``extra_body`` to bypass OpenAI SDK
+    ``Literal`` type validation (the SDK only accepts
+    ``"minimal" | "low" | "medium" | "high"``, but GLM-5.2 also
+    supports ``"max"``).
 
     Returns ``(extra_body_additions, top_level_kwargs)``.
     """
@@ -93,7 +100,7 @@ def _map_reasoning_effort(
         # Unknown effort → let the server use its default (max).
         return extra_body, top_level
 
-    top_level["reasoning_effort"] = mapped
+    extra_body["reasoning_effort"] = mapped
     return extra_body, top_level
 
 
