@@ -99,10 +99,6 @@ class ZaiProfile(ProviderProfile):
     """Z.AI / GLM provider profile with reasoning effort, header, and
     prompt-safety fixes."""
 
-    default_headers: dict[str, str] = {
-        "User-Agent": "hermes-agent/1.0",
-    }
-
     def build_api_kwargs_extras(
         self,
         *,
@@ -170,6 +166,7 @@ zai = ZaiProfile(
     ),
     base_url="https://api.z.ai/api/paas/v4",
     default_aux_model="glm-4.5-flash",
+    default_headers={"User-Agent": "hermes-agent/1.0"},
 )
 
 register_provider(zai)
