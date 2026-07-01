@@ -1,7 +1,10 @@
 """
 Custom Z.AI / GLM model provider plugin.
 
-Overrides the builtin ``zai`` provider to fix three Hermes-side bugs:
+Registers as *zai-coding-plan* (not ``zai``, which is the builtin) so the two
+coexist without collision.
+
+Fixes three Hermes-side bugs compared to the builtin Z.AI provider:
 
 1. **Ignored base_url** — uses a proper profile (base_url explicitly set).
 2. **OpenAI SDK header fingerprinting** — injects ``default_headers`` with a
@@ -155,8 +158,8 @@ class ZaiProfile(ProviderProfile):
 # -- Registration ------------------------------------------------------------
 
 zai = ZaiProfile(
-    name="zai",
-    aliases=("glm", "z-ai", "z.ai", "zhipu"),
+    name="zai-coding-plan",
+    aliases=("zai-coding-plan",),
     env_vars=("GLM_API_KEY", "ZAI_API_KEY", "Z_AI_API_KEY"),
     display_name="Z.AI (GLM) - Custom",
     description="Z.AI / GLM — Zhipu AI models (custom profile with fixes)",

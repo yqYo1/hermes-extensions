@@ -1,4 +1,4 @@
-name: zai
+name: zai-coding-plan
 kind: model-provider
 version: 1.0.0
 description: "Custom Z.AI / GLM provider — reasoning_effort mapping, header override, prompt sanitization"
