@@ -1,8 +1,8 @@
-"""
-Custom Z.AI / GLM model provider plugin.
+"""Custom Z.AI / GLM model provider plugin (separate from builtin ``zai``).
 
-Registers as *zai-coding-plan* (not ``zai``, which is the builtin) so the two
-coexist without collision.
+Registers as *zai-custom* (not ``zai``, which is the builtin provider name) so
+the two coexist without collision.  This is a *custom* provider, not the builtin
+``zai`` — the name ``zai-custom`` makes the distinction explicit.
 
 Fixes three Hermes-side bugs compared to the builtin Z.AI provider:
 
@@ -102,7 +102,7 @@ def _map_reasoning_effort(
 
 class ZaiProfile(ProviderProfile):
     """Z.AI / GLM provider profile with reasoning effort, header, and
-    prompt-safety fixes."""
+    prompt-safety fixes (custom ``zai-custom`` provider)."""
 
     def build_api_kwargs_extras(
         self,
@@ -158,8 +158,8 @@ class ZaiProfile(ProviderProfile):
 # -- Registration ------------------------------------------------------------
 
 zai = ZaiProfile(
-    name="zai-coding-plan",
-    aliases=("zai-coding-plan",),
+    name="zai-custom",
+    aliases=("zai-custom",),
     env_vars=("GLM_API_KEY", "ZAI_API_KEY", "Z_AI_API_KEY"),
     display_name="Z.AI (GLM) - Custom",
     description="Z.AI / GLM — Zhipu AI models (custom profile with fixes)",
