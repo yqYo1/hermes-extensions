@@ -63,8 +63,7 @@ export, monitoring, or explicitly gated actions.
 Use it as a companion plugin rather than copying it into this repository:
 
 ```bash
-git clone https://github.com/Xquik-dev/hermes-tweet.git ~/.hermes/plugins/hermes-tweet
-hermes plugins enable hermes-tweet
+hermes plugins install Xquik-dev/hermes-tweet --enable
 ```
 
 Read workflows require `XQUIK_API_KEY`. Post, reply, and DM actions additionally
