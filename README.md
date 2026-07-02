@@ -51,6 +51,25 @@ Blocks `delegate_task` calls that specify a limited `toolsets` parameter.
 - Blocks when `toolsets` parameter is present in `delegate_task`
 - Error message is sent to the LLM as well, prompting a retry
 
+## Compatible Companions
+
+### Hermes Tweet
+
+[Hermes Tweet](https://github.com/Xquik-dev/hermes-tweet) is a native Hermes
+Agent plugin for X/Twitter workflows. It fits alongside this collection when an
+agent needs X/Twitter exploration, tweet/reply reads, user lookup, follower
+export, monitoring, or explicitly gated actions.
+
+Use it as a companion plugin rather than copying it into this repository:
+
+```bash
+git clone https://github.com/Xquik-dev/hermes-tweet.git ~/.hermes/plugins/hermes-tweet
+hermes plugins enable hermes-tweet
+```
+
+Read workflows require `XQUIK_API_KEY`. Post, reply, and DM actions additionally
+require `HERMES_TWEET_ENABLE_ACTIONS=true`, keeping reviewed actions opt-in.
+
 ## Installation
 
 ### Clone the repository
