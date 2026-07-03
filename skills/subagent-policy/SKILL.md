@@ -1,7 +1,7 @@
 ---
 name: subagent-policy
 description: "Defines the usage policy, invocation patterns, constraints, and best practices for subagents (delegate_task). Covers role separation and implementation patterns, centered on SOUL.md."
-version: 1.1.0
+version: 1.2.0
 author: yaYoi
 license: MIT
 metadata:
@@ -144,6 +144,16 @@ Subagents may create many temporary branches and worktrees.
 
 - Instruct subagents to use a single branch-naming convention
 - Create multiple branches only when parallelism is required
+
+### Task Sizing and Execution Strategy
+
+**Keep each delegated unit small (a few commands).** Subagents match PM ability on mechanical tasks but degrade as complexity rises. Prefer many small delegations over one large one.
+
+- **Independent tasks → parallel batch.** When sub-tasks have no data dependency, dispatch them in a single `delegate_task` call (or concurrent calls) so they run in parallel.
+- **Dependent tasks → sequential chain.** When task B needs task A's output, run A first, then feed its result into B via the `context` parameter. Do not bundle them into one subagent.
+- **PM owns analysis and integration.** Reading results, cross-referencing, drawing conclusions, and planning next steps are PM responsibilities. Delegate data gathering and mechanical execution; do the synthesis yourself.
+
+Even a handful of commands is worth delegating rather than executing directly — the result returns to PM for integration.
 
 ---
 
