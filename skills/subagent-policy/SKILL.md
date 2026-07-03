@@ -160,9 +160,13 @@ follow-ups). If A is composite, first enumerate what's in A, then split into one
 **Maximum unit size.** A unit is at its maximum when (1) the subagent can complete it without confusion, AND (2) no part of it could run in parallel. If either condition fails, split further.
 Adjust granularity based on prompt quality and the specific subagent model — when a delegation underperforms, retry with finer splitting; when a coarse bundle works, coarsen next time.
 
-**PM's own step splits are execution units, not explanation structure.** When PM decomposes a task into steps (e.g. "branch → edit → commit → push → PR → CI → merge"), each step is a separate delegation target. Do not hand a multi-step plan to one subagent just because the plan is clearly written — the writing is for PM's own clarity, and the steps become execution units that go to separate subagents (sequential chain when dependent, parallel when independent). A subagent that "follows steps 1-8" is a sign the task was not actually split.
+**PM's own step splits are execution units, not explanation structure.** When PM decomposes a task into steps (e.g. "branch → edit → commit → push → PR → CI → merge"), each step is a separate delegation target.
+Do not hand a multi-step plan to one subagent just because the plan is clearly written — the writing is for PM's own clarity, and the steps become execution units that go to separate subagents (sequential chain when dependent,
+parallel when independent).
+A subagent that "follows steps 1-8" is a sign the task was not actually split.
 
-**Waiting tasks are separate units.** CI status checks, review polling, and other wait-for-external tasks are never bundled with edit/commit work. Dispatch them as their own delegation once the triggering push completes, so the editing subagent's lifecycle ends at its own boundary.
+**Waiting tasks are separate units.** CI status checks, review polling, and other wait-for-external tasks are never bundled with edit/commit work.
+Dispatch them as their own delegation once the triggering push completes, so the editing subagent's lifecycle ends at its own boundary.
 
 **Cost rationale for delegating even small tasks.** Subagents filter raw output and report only the relevant result, keeping the PM's context lean and cost predictable.
 PM execution may start cheaper, but unfiltered output causes sharp cost spikes; delegation trades a small fixed overhead for a gentler, more predictable cost curve.
