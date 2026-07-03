@@ -43,5 +43,3 @@ When timeout diagnostics are opted in, timeout events are logged to:
 
 **Resolution:** Ensure the Copilot ACP process is running and accessible from
 the same environment where Hermes is executing.
-
-
