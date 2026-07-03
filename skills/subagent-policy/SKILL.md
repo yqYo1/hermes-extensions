@@ -145,7 +145,6 @@ Subagents may create many temporary branches and worktrees.
 - Instruct subagents to use a single branch-naming convention
 - Create multiple branches only when parallelism is required
 
-
 ### Task Sizing and Execution Strategy
 
 **Keep each delegated unit small (a few commands).** Subagents match PM ability on mechanical tasks but degrade as complexity rises. Prefer many small delegations over one large one.
