@@ -147,11 +147,21 @@ Subagents may create many temporary branches and worktrees.
 
 ### Delegation Criteria and Execution Strategy
 
-**The delegation criterion is output unpredictability or predictably-long output — not command count.** Delegate when a command's output length cannot be bounded in advance (file/log reads whose location or size is unknown, compiles/installs whose progress or error output grows, any command whose worst-case output is unknown), OR when the output is predictable but long (CI status watches, verbose logs). Direct-execute only when the output is BOTH predictable AND short (basic git add/commit/push/diff/status — except long-output ones like `log`, simple text patches with a known replacement, writing PM-authored concrete content to a file).
+**The delegation criterion is output unpredictability or predictably-long output — not command count.**
+Delegate when a command's output length cannot be bounded in advance, OR when the output is predictable but long.
+The former: file/log reads whose location or size is unknown, compiles/installs whose progress or error output grows, any command whose worst-case output is unknown.
+The latter: CI status watches, verbose logs.
+Direct-execute only when the output is BOTH predictable AND short (basic git add/commit/push/diff/status — except long-output ones like `log`, simple text patches with a known replacement, writing PM-authored concrete content to a file).
 
-**File edits: judge by exploration need, not by the action type.** PM-authored concrete draft written to file = direct (output is known and short). Edits that require exploration, trial-and-error, or ripple analysis across files = delegate (the exploration makes the output unpredictable).
+**File edits: judge by exploration need, not by the action type.**
+PM-authored concrete draft written to file = direct (output is known and short).
+Edits that require exploration, trial-and-error, or ripple analysis across files = delegate (the exploration makes the output unpredictable).
 
-**Split until each unit is a single simple task.** A unit is at its maximum when (1) the subagent can complete it without confusion, AND (2) no part of it could run in parallel. If either condition fails, split further. Adjust granularity based on prompt quality and the specific subagent model — when a delegation underperforms, retry with finer splitting; when a coarse bundle works, coarsen next time. Command count is only a secondary signal, not the splitting unit.
+**Split until each unit is a single simple task.**
+A unit is at its maximum when (1) the subagent can complete it without confusion, AND (2) no part of it could run in parallel.
+If either condition fails, split further.
+Adjust granularity based on prompt quality and the specific subagent model — when a delegation underperforms, retry with finer splitting; when a coarse bundle works, coarsen next time.
+Command count is only a secondary signal, not the splitting unit.
 
 - **Independent tasks → parallel batch.** When sub-tasks have no data dependency, dispatch them in a single `delegate_task` call (or concurrent calls) so they run in parallel.
 - **Dependent tasks → sequential chain.** When task B needs task A's output, run A first, then feed its result into B via the `context` parameter. Do not bundle them into one subagent.
