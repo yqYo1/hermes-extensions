@@ -147,17 +147,21 @@ Subagents may create many temporary branches and worktrees.
 
 ### Task Sizing and Execution Strategy
 
-**Split until each unit is a single simple task.** The delegation threshold is low — even a handful of commands is worth delegating — but the splitting unit is "one simple task", not "a few commands". Subagents match PM ability on mechanical tasks but degrade as complexity rises, so keep each unit something the subagent can navigate without confusion.
+**Split until each unit is a single simple task.** The delegation threshold is low — even a handful of commands is worth delegating — but the splitting unit is "one simple task", not "a few commands". Subagents match PM ability on mechanical tasks but degrade as complexity
+rises, so keep each unit something the subagent can navigate without confusion.
 
 - **Independent tasks → parallel batch.** When sub-tasks have no data dependency, dispatch them in a single `delegate_task` call (or concurrent calls) so they run in parallel.
 - **Dependent tasks → sequential chain.** When task B needs task A's output, run A first, then feed its result into B via the `context` parameter. Do not bundle them into one subagent.
 - **PM owns analysis and integration.** Reading results, cross-referencing, drawing conclusions, and planning next steps are PM responsibilities. Delegate data gathering and mechanical execution; do the synthesis yourself.
 
-**Splitting pattern (investigation example).** "Investigate and compare A, B, C" should split into: investigate A, investigate B, investigate C (parallel), then re-investigate gaps found in each (0-3 sequential follow-ups). If A is composite, first enumerate what's in A, then split into one sub-task per feature.
+**Splitting pattern (investigation example).** "Investigate and compare A, B, C" should split into: investigate A, investigate B, investigate C (parallel), then re-investigate gaps found in each (0-3 sequential follow-ups). If A is composite, first enumerate what's
+in A, then split into one sub-task per feature.
 
-**Maximum unit size.** A unit is at its maximum when (1) the subagent can complete it without confusion, AND (2) no part of it could run in parallel. If either condition fails, split further. Adjust granularity based on prompt quality and the specific subagent model — when a delegation underperforms, retry with finer splitting; when a coarse bundle works, coarsen next time.
+**Maximum unit size.** A unit is at its maximum when (1) the subagent can complete it without confusion, AND (2) no part of it could run in parallel. If either condition fails, split further. Adjust granularity based on prompt quality and the specific subagent model
+— when a delegation underperforms, retry with finer splitting; when a coarse bundle works, coarsen next time.
 
-**Cost rationale for delegating even small tasks.** Subagents filter raw output and report only the relevant result, keeping the PM's context lean and cost predictable. PM execution may start cheaper, but unfiltered output causes sharp cost spikes; delegation trades a small fixed overhead for a gentler, more predictable cost curve.
+**Cost rationale for delegating even small tasks.** Subagents filter raw output and report only the relevant result, keeping the PM's context lean and cost predictable. PM execution may start cheaper, but unfiltered output causes sharp cost spikes; delegation trades a
+small fixed overhead for a gentler, more predictable cost curve.
 
 ---
 
