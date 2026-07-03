@@ -1,7 +1,7 @@
 ---
 name: subagent-policy
 description: "Defines the usage policy, invocation patterns, constraints, and best practices for subagents (delegate_task). Covers role separation and implementation patterns, centered on SOUL.md."
-version: 1.2.1
+version: 1.3.0
 author: yaYoi
 license: MIT
 metadata:
@@ -145,10 +145,13 @@ Subagents may create many temporary branches and worktrees.
 - Instruct subagents to use a single branch-naming convention
 - Create multiple branches only when parallelism is required
 
-### Task Sizing and Execution Strategy
+### Delegation Criteria and Execution Strategy
 
-**Split until each unit is a single simple task.** The delegation threshold is low — even a handful of commands is worth delegating —
-but the splitting unit is "one simple task", not "a few commands". Subagents match PM ability on mechanical tasks but degrade as complexity rises, so keep each unit something the subagent can navigate without confusion.
+**The delegation criterion is output unpredictability or predictably-long output — not command count.** Delegate when a command's output length cannot be bounded in advance (file/log reads whose location or size is unknown, compiles/installs whose progress or error output grows, any command whose worst-case output is unknown), OR when the output is predictable but long (CI status watches, verbose logs). Direct-execute only when the output is BOTH predictable AND short (basic git add/commit/push/diff/status — except long-output ones like `log`, simple text patches with a known replacement, writing PM-authored concrete content to a file).
+
+**File edits: judge by exploration need, not by the action type.** PM-authored concrete draft written to file = direct (output is known and short). Edits that require exploration, trial-and-error, or ripple analysis across files = delegate (the exploration makes the output unpredictable).
+
+**Split until each unit is a single simple task.** A unit is at its maximum when (1) the subagent can complete it without confusion, AND (2) no part of it could run in parallel. If either condition fails, split further. Adjust granularity based on prompt quality and the specific subagent model — when a delegation underperforms, retry with finer splitting; when a coarse bundle works, coarsen next time. Command count is only a secondary signal, not the splitting unit.
 
 - **Independent tasks → parallel batch.** When sub-tasks have no data dependency, dispatch them in a single `delegate_task` call (or concurrent calls) so they run in parallel.
 - **Dependent tasks → sequential chain.** When task B needs task A's output, run A first, then feed its result into B via the `context` parameter. Do not bundle them into one subagent.
@@ -157,18 +160,15 @@ but the splitting unit is "one simple task", not "a few commands". Subagents mat
 **Splitting pattern (investigation example).** "Investigate and compare A, B, C" should split into: investigate A, investigate B, investigate C (parallel), then re-investigate gaps found in each (0-3 sequential
 follow-ups). If A is composite, first enumerate what's in A, then split into one sub-task per feature.
 
-**Maximum unit size.** A unit is at its maximum when (1) the subagent can complete it without confusion, AND (2) no part of it could run in parallel. If either condition fails, split further.
-Adjust granularity based on prompt quality and the specific subagent model — when a delegation underperforms, retry with finer splitting; when a coarse bundle works, coarsen next time.
-
-**PM's own step splits are execution units, not explanation structure.** When PM decomposes a task into steps (e.g. "branch → edit → commit → push → PR → CI → merge"), each step is a separate delegation target.
-Do not hand a multi-step plan to one subagent just because the plan is clearly written — the writing is for PM's own clarity, and the steps become execution units that go to separate subagents (sequential chain when dependent,
-parallel when independent).
+**PM's own step splits are execution units, not explanation structure.** When PM decomposes a task into steps (e.g. "branch → edit → commit → push → PR → CI → merge"), each step is a separate delegation target —
+provided that step qualifies for delegation under the output-unpredictability criterion above.
+Do not hand a multi-step plan to one subagent just because the plan is clearly written — the writing is for PM's own clarity, and the steps become execution units that go to separate subagents.
 A subagent that "follows steps 1-8" is a sign the task was not actually split.
 
 **Waiting tasks are separate units.** CI status checks, review polling, and other wait-for-external tasks are never bundled with edit/commit work.
 Dispatch them as their own delegation once the triggering push completes, so the editing subagent's lifecycle ends at its own boundary.
 
-**Cost rationale for delegating even small tasks.** Subagents filter raw output and report only the relevant result, keeping the PM's context lean and cost predictable.
+**Cost rationale.** Subagents filter raw output and report only the relevant result, keeping the PM's context lean and cost predictable.
 PM execution may start cheaper, but unfiltered output causes sharp cost spikes; delegation trades a small fixed overhead for a gentler, more predictable cost curve.
 
 ---
