@@ -1,0 +1,41 @@
+# kakehashi configuration
+# https://github.com/atusy/kakehashi
+#
+# Downstream language servers for embedded code blocks in Markdown.
+# These LS receive formatting/diagnostic requests for code blocks
+# that the host Markdown parser cannot handle directly.
+
+autoInstall = true
+
+# ---- Downstream Language Servers ----
+
+[languageServers.basedpyright]
+cmd = ["basedpyright-langserver", "--stdio"]
+languages = ["python"]
+
+[languageServers.ruff]
+cmd = ["ruff", "server"]
+languages = ["python"]
+
+[languageServers.typos-lsp]
+cmd = ["typos-lsp"]
+languages = ["*"]
+
+# ---- Markdown bridge: Python code blocks ----
+
+[languages.markdown.bridge.python]
+enabled = true
+
+[languages.markdown.bridge.python.aggregation."textDocument/diagnostic"]
+priorities = ["basedpyright", "ruff"]
+strategy = "concatenated"
+
+[languages.markdown.bridge.python.aggregation."textDocument/formatting"]
+priorities = ["ruff", "basedpyright"]
+strategy = "preferred"
+
+# ---- Markdown bridge: spell check (all injection languages) ----
+
+[languages.markdown.bridge._.aggregation."textDocument/diagnostic"]
+priorities = ["typos-lsp"]
+strategy = "concatenated"
