@@ -18,7 +18,7 @@ jobs:
         with:
           primary-key: nix-${{ runner.os }}-${{ hashFiles('**/*.nix', '**/flake.lock') }}
           restore-prefixes-first-match: nix-${{ runner.os }}-
-          gc-max-store-size-linux: 1G
+          gc-max-store-size-linux: 5G
       - name: Run treefmt
         run: nix fmt -- --fail-on-change --no-cache
   # Lint checks - parallelized via matrix
@@ -46,7 +46,7 @@ jobs:
         with:
           primary-key: nix-${{ runner.os }}-${{ hashFiles('**/*.nix', '**/flake.lock') }}
           restore-prefixes-first-match: nix-${{ runner.os }}-
-          gc-max-store-size-linux: 1G
+          gc-max-store-size-linux: 5G
       - name: Run ${{ matrix.check }}
         run: nix build .#checks.x86_64-linux.${{ matrix.check }}
         continue-on-error: ${{ matrix.check == 'ty' }}

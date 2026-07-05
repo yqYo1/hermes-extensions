@@ -206,7 +206,12 @@
             kakehashi = pkgs.stdenv.mkDerivation {
               name = "kakehashi-check";
               src = self;
-              nativeBuildInputs = [ kakehashi.packages.${system}.default ];
+              nativeBuildInputs = [
+                kakehashi.packages.${system}.default
+                pkgs.basedpyright
+                pkgs.ruff
+                pkgs.typos-lsp
+              ];
               buildPhase = ''
                 kakehashi format --check --fail-on-change .
               '';
