@@ -66,6 +66,7 @@ Custom Z.AI / GLM model provider with client-side fixes.
 **Installation:**
 
 ```bash
+mkdir -p ~/.hermes/plugins/model-providers/
 ln -s ~/ghq/github.com/yqYo1/hermes-extensions/plugins/model-providers/zai-custom ~/.hermes/plugins/model-providers/
 hermes plugins enable zai-custom
 ```
@@ -85,6 +86,7 @@ ghq get git@github.com:yqYo1/hermes-extensions.git
 ln -s ~/ghq/github.com/yqYo1/hermes-extensions/plugins/<plugin-name> ~/.hermes/plugins/
 
 # Model-provider plugin (symlink into plugins/model-providers/)
+mkdir -p ~/.hermes/plugins/model-providers/
 ln -s ~/ghq/github.com/yqYo1/hermes-extensions/plugins/model-providers/<name> ~/.hermes/plugins/model-providers/
 
 # Enable
