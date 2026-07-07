@@ -1,13 +1,13 @@
 ---
 name: subagent-policy
 description: "Defines the usage policy, invocation patterns, constraints, and best practices for subagents (delegate_task). Covers role separation, delegation criteria, failure modes, and implementation patterns."
-version: 1.4.0
+version: 1.5.0
 author: yaYoi
 license: MIT
 metadata:
   hermes:
     tags: [subagent, delegate_task, policy, best-practices, hermes-agent]
-    related_skills: [hermes-agent, git-workflow, specification-authoring]
+    related_skills: [hermes-agent, git-workflow, specification-authoring, opencode]
 ---
 
 # Subagent Operation Policy
@@ -34,6 +34,11 @@ The main agent (PM) only performs planning, decomposition, delegation decisions,
 | All mechanical execution | Trivial lookups (a single tool call) |
 
 > **When in doubt, delegate.**
+>
+> **Hard rule:** Do NOT edit files directly from the main agent when a subagent or coding agent
+> could handle it. Direct main-agent editing is a last resort, not a default. If you find yourself
+> writing patch blocks or file edits directly, pause and ask whether a subagent could have done
+> this instead. Maximize appropriate delegation to subagents and coding agents.
 
 ---
 
@@ -224,6 +229,90 @@ Subagents fail in characteristic ways. Recognize and pre-empt them:
 - **Token budget.** For expensive delegations, set expectations on output size (`max_tokens`, structured output constraints) to bound cost.
 - **Caching and batching.** Cache repeated sub-agent results; batch independent tasks into one parallel dispatch instead of sequential calls.
 - **Stop early.** Define early-stop conditions (e.g. "stop after finding the first verified root cause") to avoid unnecessary exploration.
+
+### 5.7. Coding Agent Delegation
+
+Coding agents (OpenCode, Claude Code, Codex, etc.) are specialized subagents for code work. The PM delegates coding work to them rather than performing code edits directly.
+
+#### 5.7.1. When to Use Coding Agents
+
+| Appropriate | Inappropriate |
+| ----------- | ------------- |
+| Implementation of new features | Quick deterministic edits (single known replacement) |
+| Refactoring and restructuring | Non-code tasks better handled by worker/researcher subagents |
+| Code review and PR review | Trivial one-line changes |
+| Generating tests from code | Environment setup or config-only changes |
+| Generating documentation from code | Read-only investigation of very small scope |
+| Multi-file changes requiring ripple analysis | |
+
+Apply the delegation criterion from §5.3: delegate when the output is unpredictable or predictably-long. Coding agents excel at tasks where the exploration surface is large — reading many files, identifying patterns, making cross-cutting changes.
+
+#### 5.7.2. Model Selection
+
+Do NOT force a specific model on a coding agent unless:
+
+- The user explicitly requests a specific model
+- The default model is clearly failing for the task type (e.g., a weak model for complex reasoning)
+- Retrying after timeout or failure and a different model is a reasonable fallback
+
+Otherwise, let the coding agent use its configured defaults. Overriding `--model` without cause may select a slower, more expensive, or less appropriate model.
+
+#### 5.7.3. Review Timing Gates
+
+Run code review at ALL of the following checkpoints:
+
+1. **After each subagent completes implementation** — review what the subagent produced before integrating it into the main work.
+2. **Before presenting changes to the user** — review the complete changeset before requesting user review.
+3. **Before pushing a changeset intended for pull request or user review** — review the working branch before the push that culminates work for review. (Frequent intermediate pushes to share work-in-progress do not require a full review before each one.)
+4. **At natural breakpoints** — when pausing work, switching phases, or completing a major milestone.
+
+Additionally:
+
+- Run CI checks (or equivalent gates) before requesting user review; never skip this step.
+- Review and CI gates must both pass before opening or merging a PR.
+- Never use `--admin` flags or API-based merge bypasses.
+- Do not substitute subagent review for coding-agent review as a matter of routine — if the
+  coding agent fails on a normal scope, retry with fallback model or split the review scope. The
+  only exception is when the coding agent consistently times out even after splitting the review
+  scope (see §5.7.4); in that specific case, fall back to a `delegate_task` subagent with read-only
+  tools instead.
+
+#### 5.7.4. Large Review Splitting
+
+When a code review is expected to exceed the coding agent's bounded timeout:
+
+1. Split the review by file, component, or concern area — not by directory glob.
+2. Pass specific file paths rather than asking the agent to discover files.
+3. Request a high-level summary first, then deep-dive specific areas in follow-up rounds.
+4. If the coding agent consistently times out even after splitting, fall back to a `delegate_task` subagent with read-only tools for the review instead.
+
+#### 5.7.5. Subagent Wrapper Pattern
+
+Prefer running coding agents inside a `delegate_task` subagent rather than invoking them directly from the PM:
+
+```python
+delegate_task(
+    goal="Use a coding agent to implement OAuth refresh flow and add tests",
+    context=(
+        "CRITICAL RULES:\n"
+        "- Run the coding agent in the project directory\n"
+        "- If it fails, retry with appropriate fallback settings\n"
+        "- Report files changed and test results\n"
+        "\n"
+        "TASK:\n"
+        "Implement OAuth refresh flow..."
+    )
+)
+```
+
+This pattern:
+
+- Keeps the PM's context clean
+- Isolates the coding agent session
+- Lets the PM monitor or abort without blocking
+- Enables parallel work (other subagents can run concurrently)
+
+Direct invocation (without subagent wrapper) is acceptable only for: smoke tests, one-liner verifications, or when `delegate_task` is genuinely unavailable (e.g., toolset disabled, depth limit hit).
 
 ---
 
