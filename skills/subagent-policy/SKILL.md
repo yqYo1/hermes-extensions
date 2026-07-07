@@ -263,7 +263,7 @@ Run code review at ALL of the following checkpoints:
 
 1. **After each subagent completes implementation** — review what the subagent produced before integrating it into the main work.
 2. **Before presenting changes to the user** — review the complete changeset before requesting user review.
-3. **Before pushing to remote** — review the working branch before any `git push`.
+3. **Before pushing a changeset intended for pull request or user review** — review the working branch before the push that culminates work for review. (Frequent intermediate pushes to share work-in-progress do not require a full review before each one.)
 4. **At natural breakpoints** — when pausing work, switching phases, or completing a major milestone.
 
 Additionally:
@@ -271,7 +271,11 @@ Additionally:
 - Run CI checks (or equivalent gates) before requesting user review; never skip this step.
 - Review and CI gates must both pass before opening or merging a PR.
 - Never use `--admin` flags or API-based merge bypasses.
-- Never substitute subagent review for coding-agent review — if the coding agent fails, retry with fallback model or split the review scope, but do not replace the review with a different tool.
+- Do not substitute subagent review for coding-agent review as a matter of routine — if the
+  coding agent fails on a normal scope, retry with fallback model or split the review scope. The
+  only exception is when the coding agent consistently times out even after splitting the review
+  scope (see §5.7.4); in that specific case, fall back to a `delegate_task` subagent with read-only
+  tools instead.
 
 #### 5.7.4. Large Review Splitting
 
