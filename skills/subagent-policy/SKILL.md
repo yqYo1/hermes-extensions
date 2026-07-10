@@ -68,6 +68,8 @@ Every `delegate_task` call must specify:
 5. **Success criteria** — how the PM will decide the task is done.
 6. **Output format** — the shape of the expected result (summary, structured JSON, diff, list).
 
+`delegate_task` exposes `goal` and `context`, not separate arguments for items 3–6. Structure constraints, required evidence, success criteria, and output format inside `context` (or `goal` when intrinsic to the task); do not invent keyword arguments.
+
 Template:
 
 ```python
@@ -115,7 +117,7 @@ Concurrency settings (max children, depth) are live config values. Inspect curre
 - **Parent verifies external side effects.** Before reporting success, the PM must independently verify that any external-write delegation (push, PR, merge, deploy) produced the intended outcome. Do not trust the subagent's self-report alone.
 - **Protection bypass is failure.** If a subagent reports that it bypassed a protection (`--admin`, API merge, ruleset weakening) to achieve the goal, treat it as a failure regardless of outcome. The subagent should stop and report the block instead.
 - **Review gates.** Run code review after subagent implementation completes, before presenting changes to the user, and before pushing a changeset intended for PR. CI gates must pass before requesting user review or merging.
-- **Large review splitting.** Split reviews by file or component when single-pass timeouts occur. Fall back to read-only `delegate_task` subagents only when the coding agent consistently times out after splitting.
+- **Large review splitting.** Split reviews by file or component when single-pass timeouts occur. Fall back to read-only `delegate_task` subagents only when the external coding agent (for example, OpenCode) consistently times out after splitting.
 
 ## 7. Related Skills
 
