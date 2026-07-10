@@ -13,6 +13,7 @@ Version 2.0.0 is a major semantic shift from 1.x. Key changes:
 | PM role | Planner/delegator only | Intent owner, outcome owner, planner, synthesizer, verifier |
 | Prompt style | Verbose rules, explicit permissions, persistence language | Compact policy, outcome-first, no redundant guidance |
 | Config values | Hardcoded in SKILL.md | Referenced as "inspect live config" |
+| Primary token objective | Not explicit | Minimize main-agent context growth; total tokens are secondary |
 
 The trigger for 2.0.0 is alignment with OpenAI's "Using GPT-5.6" guidance, which applies to Sol, and the revised PM role model.
 
@@ -49,6 +50,14 @@ The following sources informed this rewrite:
 ### No dedicated Sol-specific prompt guide
 
 OpenAI does not publish a separate "GPT-5.6 Sol prompting guide." The current normative page is "Using GPT-5.6" at the URL above, which states that GPT-5.5 prompt guidance remains applicable. Do not claim a dedicated guide exists.
+
+## Main-agent token objective
+
+The primary token objective is to reduce growth of the main agent's context, not necessarily to minimize aggregate tokens across all agents.
+
+- Delegation keeps noisy intermediate tool output and exploration inside the child context; only a decision-complete final summary should return to the PM.
+- Spending more total tokens is acceptable when it preserves PM reasoning capacity and required output quality.
+- Do not remove required evidence, caveats, or validation to save tokens, and do not delegate tiny deterministic work when coordination overhead would be larger.
 
 ## Placement decisions: what goes where
 

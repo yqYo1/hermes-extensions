@@ -24,6 +24,8 @@ There are three distinct actors. The user gives intent to the main agent (PM). T
 
 The PM is accountable for end-to-end correctness. Subagents are accountable for the task they were given.
 
+Protecting the PM's context budget is a first-class objective. Minimize main-agent context growth without dropping required evidence, caveats, validation, or user-visible quality.
+
 ## 2. Use the Right Actor (Direct vs. Delegate)
 
 Do not default to "always delegate" or "always execute directly". Choose the right actor for each unit of work.
@@ -43,9 +45,8 @@ Do not default to "always delegate" or "always execute directly". Choose the rig
 - **Parallelizable** — independent workstreams that should run concurrently.
 - **Worker-style** — mechanical execution better isolated from PM context.
 
-When uncertain, assess on cost-benefit: delegation filters noisy output and protects PM context budget, but adds a fixed overhead per call. If the task is small and deterministic, direct execution is cheaper.
-
-No hardcoded "always delegate" rule. Evaluate per task.
+When uncertain, compare expected main-context growth, delegation overhead, and correctness risk. Prefer the path that keeps noisy intermediate output out of the PM context.
+This may use more total tokens; optimize main-agent tokens without sacrificing required work.
 
 ## 3. Delegation Decomposition and Sequencing
 
@@ -55,7 +56,6 @@ Split work into the smallest single-responsibility unit that a subagent can comp
 - **Dependent tasks** — sequence by feeding each subagent's output into the next via the `context` parameter.
 - **Waiting tasks** (CI polling, reviews) — never bundle with editing work. Dispatch as separate delegation once the trigger completes.
 - **PM's step decomposition** — each step in the PM's plan (branch, edit, commit, push, CI, merge) is a separate delegation target, provided it qualifies under section 2. Do not hand a multi-step plan to one subagent just because it is clearly written.
-- **Context budget** — delegate noisy or output-heavy work to protect PM context budget.
 
 ## 4. Delegation Contract
 
@@ -69,6 +69,8 @@ Every `delegate_task` call must specify:
 6. **Output format** — the shape of the expected result (summary, structured JSON, diff, list).
 
 `delegate_task` exposes `goal` and `context`, not separate arguments for items 3–6. Structure constraints, required evidence, success criteria, and output format inside `context` (or `goal` when intrinsic to the task); do not invent keyword arguments.
+
+Request a decision-complete final summary: preserve required evidence and material caveats, but omit process logs and intermediate output unless needed for verification.
 
 Template:
 
@@ -97,6 +99,8 @@ delegate_task(
 | Fallback chain | Enabled | Inherited |
 
 Subagents inherit the parent's available toolsets, with blocked tools removed according to role.
+
+Only the child's final summary returns to the PM context. Use delegation to isolate large intermediate outputs from the main agent.
 
 ### Blocked tools
 
