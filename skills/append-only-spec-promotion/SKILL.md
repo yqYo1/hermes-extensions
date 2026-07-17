@@ -80,7 +80,7 @@ Every candidate commit on any monitored repo's default branch must pass ALL gate
 The four spec sections that must reference the two-layer policy:
 
 | Section | Original (dangerous) | After fix |
-|---------|---------------------|-----------|
+| --------- | --------------------- | ----------- |
 | **§1.2** (design principles) | "§4.6を参照" | Link to both §4.6.1 and §4.6.2 explicitly |
 | **§4.6** (compatibility itself) | Ambiguous branch names | Now the normative two-layer definition |
 | **§10.2** (API design) | "リファクタリング前のスクリプト" vague | "不変ベースライン（§4.6.1）の全スクリプト" |

@@ -55,6 +55,7 @@ search_files(pattern="def <function_name>", path=~/ghq/github.com/*/<project-glo
 For other languages, adjust the pattern (e.g., `fn <name>`, `function <name>`, `<name>(`).
 
 **What you're looking for:**
+
 - Does the function exist in each fork? → presence map
 - What are the type hints / parameter names? → signature divergence
 - What Literal values are accepted? → value set divergence
@@ -78,7 +79,7 @@ This distinguishes "added by this fork" from "existed upstream."
 Read the relevant source files from each fork's default branch. Note:
 
 | Dimension | What to check |
-|-----------|---------------|
+| ----------- | --------------- |
 | Type hints | Literal values, Optional wrappers, union types |
 | Defaults | Config file defaults vs function defaults |
 | Case sensitivity | Does the implementation normalize input (`.lower()`, `.upper()`)? |
@@ -89,7 +90,7 @@ Read the relevant source files from each fork's default branch. Note:
 Categorize the findings to guide the recommendation:
 
 | Finding | Implication |
-|---------|-------------|
+| --------- | ------------- |
 | In current fork only | Fork-specific addition. Safe to change without cross-fork compat concern. |
 | In all forks with same signature | Upstream-origin API. Must maintain backward compat across entire chain. |
 | In all forks with different signatures | Risk of silent breakage if scripts migrate between forks. Needs compat layer or alignment. |
@@ -113,7 +114,7 @@ Silent usage in uninspected scripts is the highest-risk compatibility gap.
 
 **Non-linear fork chains:** A repo may be a fork of a different project entirely (e.g., a feature fork vs a maintenance fork of the same root). Verify the actual parent relationship rather than assuming a linear chain.
 
-**Case-insensitive implementation:** If `value.lower()` is used internally, the code accepts any casing, but config files and UI values may use a specific canonical form. Use the config/UI form for type hints and documentation, not the runtime-accepted form.
+**Case-insensitive implementation:** If `value.lower()` is used internally, the code accepts any casing, but config files and UI values may use a specific canonical form. Use the config/UI form for type hints and documentation,
 
 ## Reference
 

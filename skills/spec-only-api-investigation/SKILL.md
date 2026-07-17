@@ -36,6 +36,7 @@ search_files(pattern="api_name", path=<repo-path>, file_glob="SPECIFICATION.md" 
 ```
 
 Common locations:
+
 - `<repo>/SPECIFICATION.md` (root)
 - `<repo>/.worktree/<branch>/SPECIFICATION.md` (git worktree)
 - `<repo>/docs/` or `<repo>/Docs/`
@@ -63,6 +64,7 @@ git log --all -S "api_name" -- "*.md" "*.spec"
 ### 3. Identify the Specific Specification Section
 
 Once you find the API in a spec document, identify:
+
 - Section number and heading
 - What the spec says about path resolution, defaults, behavior
 - Any "design decisions" or "confirmed" annotations nearby
@@ -81,6 +83,7 @@ git show <commit> -- SPECIFICATION.md | grep -B5 -A5 "api_name"
 ```
 
 Key patterns to watch for:
+
 - **Removal of baseline definition:** A commit that deletes "based on X" or "relative to Y" is an intentional design decision to leave the question open.
 - **Tilde/absolute path examples commented out:** Signals the spec writer deferred a decision.
 - **Platform path changes:** A commit adding platform directory tables (XDG/Win) may interact with path resolution design.
@@ -88,7 +91,7 @@ Key patterns to watch for:
 ### 5. Classify the Compatibility Surface
 
 | Finding | Implication |
-|---------|-------------|
+| --------- | ------------- |
 | Spec-only, no code in any fork | **Zero backward-compat constraints.** Pure design decision. Freely choose semantics. |
 | Previously existed, then removed | Restoring changes contract. Check original behavior via `git show <parent>^:path`. |
 | Spec says "relative + absolute" but no base defined | Design deliberately left open. The recent platform-path change likely removed the base reference on purpose. |

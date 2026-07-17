@@ -25,11 +25,13 @@ Resolve time-dependent branch-name references in specification documents to immu
 ### 1. Extract the Fork Chain from the Spec
 
 Read the spec section that defines compatibility scope. Typical phrasing:
+
 - "現在のフォークのメインブランチ"
 - "フォーク元である Extension のデフォルトブランチ"
 - "Extension の fork 元である modified のデフォルトブランチ"
 
 Derive repo URLs from:
+
 - The current repo's `git remote get-url origin`
 - `gh repo view owner/repo --json parent,isFork`
 - Recursive parent traversal until `isFork=false`
@@ -89,7 +91,7 @@ git merge-base --is-ancestor main refactor/rust-core
 **Classification table:**
 
 | Pattern | Baseline choice |
-|---------|----------------|
+| --------- | ---------------- |
 | Deletion on refactor branch only, not on main | `main` HEAD = pre-refactor baseline |
 | Deletion's first parent also only on refactor | `main` HEAD is the correct snapshot; deletion parent is NOT the fork point |
 | Fork point = `main` HEAD | `main` hasn't moved since branch was created |
@@ -110,7 +112,7 @@ Generate a table:
 Add deletion-commit relationship notes:
 
 | 項目 | 値 |
-|------|-----|
+| ------ | ----- |
 | 削除コミット | `<sha>` ("message") |
 | 第一親 | `<parent-sha>` |
 | マージコミット? | Yes/No |
@@ -122,7 +124,7 @@ Add deletion-commit relationship notes:
 Identify spec sections with unpinned references:
 
 | セクション | 現状 | 推奨改定 |
-|-----------|------|---------|
+| ----------- | ------ | --------- |
 | §4.6 | ブランチ名のみ | ベースライン表に置き換え |
 | §10.7 | ベースライン未参照 | §4.6への参照追加 |
 | §1.2 | 間接参照のみ | ベースライン表への直接リンク追加 |
