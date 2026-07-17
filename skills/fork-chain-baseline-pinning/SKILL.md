@@ -79,10 +79,10 @@ If the current repo has a working branch (e.g., `refactor/rust-core`) with a del
 git merge-base main refactor/rust-core
 
 # Does main contain the deletion commit?
-git branch --contains 3717027
+git branch --contains <deletion-commit-sha>
 
 # Does the deletion commit's parent exist on main?
-git merge-base --is-ancestor 3717027^1 main
+git merge-base --is-ancestor <deletion-commit-sha>^1 main
 
 # Is main an ancestor of refactor branch?
 git merge-base --is-ancestor main refactor/rust-core

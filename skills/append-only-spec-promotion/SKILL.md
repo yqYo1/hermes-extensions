@@ -108,14 +108,14 @@ grep -n '§4\.' SPECIFICATION.md | grep -E '(§4\.6|§4\.6\.1|§4\.6\.2)'
 
 **Rolling does not mean automatic for new language features:** A commit that adds a new API is compatible (G7 passes), but the implementation team must still build that API. Promotion is about the *contract* — implementation readiness is a separate concern.
 
-## Links from This Session
+## Example Changeset
 
-The concrete changeset that this skill is based on:
+Below is an example changeset showing how this skill was applied to a specification:
 
 - `SPECIFICATION.md` §4.6: replaced 3-line branch-name compatibility with two-layer normative table + rolling policy
-- `SPECIFICATION.md` §1.2 line 40: "§4.6を参照" → explicit two-layer reference
-- `SPECIFICATION.md` §10.2 line 1107: "リファクタリング前のスクリプト" → "不変ベースライン（§4.6.1）の全スクリプト"
-- `SPECIFICATION.md` §10.7 line 1543: implementation-status-only table → policy header + gate rows
+- `SPECIFICATION.md` §1.2: "§4.6を参照" → explicit two-layer reference
+- `SPECIFICATION.md` §10.2: "リファクタリング前のスクリプト" → "不変ベースライン（§4.6.1）の全スクリプト"
+- `SPECIFICATION.md` §10.7: implementation-status-only table → policy header + gate rows
 
 ## References
 

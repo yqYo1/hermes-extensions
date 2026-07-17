@@ -32,7 +32,7 @@ This skill handles the **spec-only subcase** of the broader api-compatibility-in
 Search for specification/design documents that might define the API:
 
 ```
-search_files(pattern="api_name", path=<repo-path>, file_glob="SPECIFICATION.md" "*.md" "*.spec")
+search_files(pattern="api_name", path=<repo-path>, file_glob=["SPECIFICATION.md", "*.md", "*.spec"])
 ```
 
 Common locations:

@@ -49,7 +49,7 @@ Each repo gets its own directory under `~/ghq/github.com/<owner>/<repo>/`. Never
 For Python projects, search function definitions across all forks simultaneously:
 
 ```
-search_files(pattern="def <function_name>", path=~/ghq/github.com/*/<project-glob>*/)
+search_files(pattern="def <function_name>", path="~/ghq/github.com/*/<project-glob>*/")
 ```
 
 For other languages, adjust the pattern (e.g., `fn <name>`, `function <name>`, `<name>(`).
