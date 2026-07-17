@@ -101,6 +101,65 @@ python3 -c "import json; d=json.load(open('~/.hermes/skills/.usage.json')); prin
 
 Expected output: `None` (not `"agent"`)
 
+### Curator Contamination Response
+
+The curator follows symlinks under `~/.hermes/skills/`. Because repository skills are exposed to Hermes via symlinks
+(e.g. `~/.hermes/skills/git-workflow -> <repo>/skills/git-workflow`), a curator run can write directly into this
+repository's working tree on the default branch. Symptoms:
+
+- Uncommitted, untracked skill directories appear under `skills/` on the default branch
+- `.usage.json` shows `created_by: "agent"` for repository-managed skills
+- `git status` on the repo root shows unexpected new `skills/<name>/` entries
+
+**Detection (run after any curator pass or when unexpected files appear):**
+
+```bash
+# 1. List skills flagged as agent-created, then cross-check against
+#    the skills tracked in this repository
+python3 -c "
+import json
+d = json.load(open('$HOME/.hermes/skills/.usage.json'))
+for k, v in sorted(d.items()):
+    if v.get('created_by') == 'agent':
+        print(k)
+"
+git ls-tree -d --name-only HEAD skills/
+# Any name appearing in BOTH lists is contamination: it is tracked in
+# this repository but flagged as curator-managed.
+
+# 2. Check for untracked contamination on the default branch
+git status --short
+```
+
+**Remediation:**
+
+1. Reset `created_by` to `null` for every repository-managed skill (back up `.usage.json` first):
+
+```bash
+cd ~/.hermes/skills
+cp .usage.json ".usage.json.backup.$(date +%Y%m%d_%H%M%S)"
+python3 -c "
+import json
+with open('.usage.json') as f:
+    d = json.load(f)
+repo_skills = ['api-compatibility-investigation', 'append-only-spec-promotion',
+               'fork-chain-baseline-pinning', 'git-workflow',
+               'spec-only-api-investigation', 'subagent-policy']
+for name in repo_skills:
+    if name in d:
+        d[name]['created_by'] = None
+with open('.usage.json', 'w') as f:
+    json.dump(d, f, indent=2, sort_keys=True)
+"
+```
+
+Keep `repo_skills` in the snippet above in sync with `git ls-tree -d --name-only HEAD skills/`.
+
+Then:
+
+1. Salvage valuable curator-generated content through the normal git workflow (branch + worktree + PR); never commit it on the default branch directly.
+2. Discard the remaining untracked files and stale changes from the default branch working tree.
+
 ### Skill Language Policy
 
 Skills in this repository MUST be written in **English** by default.
