@@ -242,7 +242,7 @@ def detect_thinking_loop(
         elif not n1 or not n2:
             sim = 0.0
         else:
-            sim = difflib.SequenceMatcher(None, n1, n2).ratio()
+            sim = _text_similarity(recent[i], recent[i + 1])
 
         if sim >= similarity_threshold:
             current_streak += 1

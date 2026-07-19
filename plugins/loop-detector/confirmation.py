@@ -14,7 +14,10 @@ from __future__ import annotations
 
 from typing import Any
 
-from detector import Detection
+try:  # Package import (normal plugin loading)
+    from .detector import Detection
+except ImportError:  # Standalone import (tests run from the plugin directory)
+    from detector import Detection  # type: ignore[no-redef]
 
 # ---------------------------------------------------------------------------
 # Confirmation JSON schema (SPEC §6.2)

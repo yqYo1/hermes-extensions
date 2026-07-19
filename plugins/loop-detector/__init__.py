@@ -190,6 +190,15 @@ def _on_pre_tool_call(
             state["tool_calls"].append(current)
             return None
 
+        # Block-count cap exceeded — recovery-only (SPEC §7.2).
+        # Must precede the blocked_this_turn check: once the cap is reached,
+        # no further blocks are issued for ANY detection, including
+        # same-turn repeats.
+        if state["block_count"] >= max_blocks:
+            state["pending_recovery"] = _build_recovery_notice(detection)
+            state["tool_calls"].append(current)
+            return None
+
         # Already blocked this turn — block immediately (SPEC §6.4).
         if loop_key in state["blocked_this_turn"]:
             state["block_count"] += 1
@@ -200,12 +209,6 @@ def _on_pre_tool_call(
                     detection, state["block_count"], max_blocks
                 ),
             }
-
-        # Block-count cap exceeded — recovery-only (SPEC §7.2).
-        if state["block_count"] >= max_blocks:
-            state["pending_recovery"] = _build_recovery_notice(detection)
-            state["tool_calls"].append(current)
-            return None
 
         # ── LLM confirmation (SPEC §6) ──────────────────────────────────
         ccfg = _confirm_cfg()
