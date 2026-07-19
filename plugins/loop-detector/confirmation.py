@@ -1,0 +1,222 @@
+"""confirmation.py — LLM confirmation + allowlist for loop-detector plugin v2.0.0.
+
+SPEC §6 (LLM confirmation), §6.3 (failure handling), §6.4 (allowlist).
+
+This module provides:
+  - ``ask_llm_confirmation()`` — calls ``complete_structured`` on the
+    plugin's ``ctx.llm`` object and returns ``True`` = block / ``False`` =
+    allow.
+  - ``Allowlist`` — in-session set of confirmed-intentional patterns.
+  - ``make_allowlist_key()`` — creates a canonical key from a ``Detection``.
+"""
+
+from __future__ import annotations
+
+from typing import Any
+
+from detector import Detection
+
+# ---------------------------------------------------------------------------
+# Confirmation JSON schema (SPEC §6.2)
+# ---------------------------------------------------------------------------
+
+_CONFIRMATION_SCHEMA: dict[str, Any] = {
+    "type": "object",
+    "properties": {
+        "is_loop": {
+            "type": "boolean",
+            "description": "true if this is an unintended loop, false if intentional",
+        },
+        "reason": {
+            "type": "string",
+            "description": "brief reason for the judgment",
+        },
+    },
+    "required": ["is_loop", "reason"],
+}
+
+# ---------------------------------------------------------------------------
+# Prompt building
+# ---------------------------------------------------------------------------
+
+
+def _build_instructions(loop_type: str, detail: str) -> str:
+    """Build the instructions for the LLM confirmation call.
+
+    Args:
+        loop_type: Loop classification (e.g. ``"tool_loop_consecutive"``,
+            ``"tool_loop_window"``, ``"thinking_loop"``).
+        detail: Human-readable detection description from
+            ``Detection.detail``.
+
+    Returns:
+        The ``instructions`` string to pass to
+        ``ctx.llm.complete_structured()``.
+    """
+    return (
+        "You are a loop detector operating inside an LLM agent session.\n\n"
+        "A repetitive pattern has been detected. Determine whether this is "
+        "an unintended loop (the model is stuck repeating the same action "
+        "without making progress) or an intentional pattern (e.g. polling "
+        "for CI results, waiting for a background process, periodic status "
+        "checking).\n\n"
+        f"Loop type: {loop_type}\n"
+        f"Detection detail: {detail}\n\n"
+        "Respond with a single JSON object containing:\n"
+        '- "is_loop": true if this is an unintended loop, false if intentional\n'
+        '- "reason": a brief explanation for the judgment'
+    )
+
+
+# ---------------------------------------------------------------------------
+# LLM confirmation (SPEC §6)
+# ---------------------------------------------------------------------------
+
+
+def ask_llm_confirmation(
+    ctx_llm: Any,
+    loop_type: str,
+    detail: str,
+    *,
+    timeout: int = 30,
+    on_error: str = "block",
+) -> bool:
+    """Ask the LLM to confirm whether a detected pattern is a loop.
+
+    Calls ``ctx_llm.complete_structured()`` with the confirmation schema
+    from SPEC §6.2.
+
+    Args:
+        ctx_llm: The ``ctx.llm`` object from a Hermes plugin context
+            (expected to have a ``complete_structured`` method matching
+            the signature in ``plugin_llm.py``).
+        loop_type: Classification of the loop (e.g. ``"tool_loop"``,
+            ``"tool_loop_consecutive"``, ``"thinking_loop"``).
+        detail: Human-readable description of the detection (from
+            ``Detection.detail``).  Should include tool name, repeat
+            count, and arguments summary (SPEC §6.2).
+        timeout: Max seconds to wait for the confirmation call.
+        on_error: Behaviour when the call fails (exception, timeout, or
+            parse failure).  ``"block"`` (default, fail-closed) returns
+            ``True``; ``"allow"`` (fail-open) returns ``False``.
+
+    Returns:
+        ``True`` if the pattern should be blocked (loop confirmed or
+        confirmation failed with ``on_error="block"``).
+        ``False`` if the pattern is intentional (should be allowed).
+    """
+    instructions = _build_instructions(loop_type, detail)
+
+    try:
+        result = ctx_llm.complete_structured(
+            instructions=instructions,
+            input=[{"type": "text", "text": detail}],
+            json_schema=_CONFIRMATION_SCHEMA,
+            timeout=float(timeout),
+        )
+
+        if result.content_type == "json" and result.parsed is not None:
+            is_loop = bool(result.parsed.get("is_loop", True))
+            reason = str(result.parsed.get("reason", "no reason provided"))
+            print(
+                f"[loop-detector] LLM confirmation: is_loop={is_loop}, reason={reason}"
+            )
+            return is_loop
+
+        # Parse failure — content_type is not "json" or parsed is None
+        print(
+            f"[loop-detector] LLM confirmation: parse failure "
+            f"(content_type={result.content_type!r}, "
+            f"parsed={result.parsed!r}), "
+            f"on_error={on_error!r} → {'block' if on_error == 'block' else 'allow'}"
+        )
+        return on_error == "block"
+
+    except Exception as exc:
+        print(
+            f"[loop-detector] LLM confirmation: {type(exc).__name__}: {exc}, "
+            f"on_error={on_error!r} → {'block' if on_error == 'block' else 'allow'}"
+        )
+        return on_error == "block"
+
+
+# ---------------------------------------------------------------------------
+# Allowlist (SPEC §6.4)
+# ---------------------------------------------------------------------------
+
+
+class Allowlist:
+    """In-session allowlist of confirmed-intentional patterns.
+
+    SPEC §6.4: patterns judged intentional by the LLM are registered here
+    so that subsequent occurrences skip confirmation and blocking.
+
+    Pattern keys:
+    - Tool loops (consecutive / window): the normalized tool-call tuple
+      ``(tool_name, canonical_json)``.
+    - Tool loops (alternating): the period sequence
+      ``list[tuple[str, str]]``.
+    - Thinking loops: the fixed string ``"thinking"``.
+    """
+
+    def __init__(self) -> None:
+        self._patterns: set[object] = set()
+
+    def add(self, pattern: object) -> None:
+        """Register a pattern as confirmed-intentional.
+
+        Args:
+            pattern: Canonical pattern key (tuple, list, or string).
+        """
+        self._patterns.add(pattern)
+
+    def contains(self, pattern: object) -> bool:
+        """Check if a pattern has already been allowed.
+
+        Args:
+            pattern: Canonical pattern key to look up.
+
+        Returns:
+            ``True`` if the pattern was previously confirmed as intentional.
+        """
+        return pattern in self._patterns
+
+    def remove(self, pattern: object) -> None:
+        """Remove a pattern from the allowlist."""
+        self._patterns.discard(pattern)
+
+    def clear(self) -> None:
+        """Clear all allowed patterns."""
+        self._patterns.clear()
+
+    def snapshot(self) -> frozenset[object]:
+        """Return an immutable snapshot of the current allowlist contents."""
+        return frozenset(self._patterns)
+
+
+def make_allowlist_key(
+    loop_type: str,
+    detection: Detection | None = None,
+) -> object:
+    """Create a canonical allowlist key from a loop type and optional detection.
+
+    SPEC §6.4 defines pattern keys as:
+    - Tool loops → the detection's ``pattern`` attribute (either the
+      ``(tool_name, canonical_json)`` tuple or the period sequence list).
+    - Thinking loops → the string ``"thinking"``.
+
+    Args:
+        loop_type: Loop classification (e.g. ``"tool_loop_consecutive"``,
+            ``"thinking_loop"``).
+        detection: The ``Detection`` instance, if available (required for
+            tool loops).
+
+    Returns:
+        A hashable object suitable as an allowlist key, or ``None`` if the
+        loop type is unrecognised.
+    """
+    if detection is not None and loop_type.startswith("tool_loop"):
+        return detection.pattern
+    if loop_type == "thinking_loop":
+        return "thinking"
+    return loop_type
