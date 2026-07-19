@@ -1,74 +1,86 @@
 # Loop Detector Plugin
 
-Hermes Agent のセッション中に以下の 2 種類のループを検知し、検知した場合はループ前の状態に巻き戻して再試行します。
+Hermes Agent のセッション中に以下の 2 種類のループを検知し、ブロックと通知によって被害を抑止します。
 
-## 機能
-
-1. **思考ループ（Thinking Loop）**: 同じ内容や同じ推論パターンを繰り返し出力する LLM の振る舞いを検知
-2. **ツール呼び出しループ（Tool Loop）**: 同じツールを同じ引数で繰り返し呼び出す振る舞いを検知・ブロック
+1. **ツール呼び出しループ（Tool Loop）**: 同じツールを同じ引数で繰り返し呼び出す振る舞いを検知・ブロック
+2. **思考ループ（Thinking Loop）**: 同じ推論パターンを繰り返し出力する LLM の振る舞いを検知・通知
 
 ## インストール
 
 ```bash
-# プラグインを有効化
+ln -s ~/ghq/github.com/yqYo1/hermes-extensions/plugins/loop-detector ~/.hermes/plugins/
 hermes plugins enable loop-detector
-```
-
-## 設定
-
-`~/.hermes/config.yaml` に以下を追加：
-
-```yaml
-plugins:
-  loop_detector:
-    enabled: true
-    thinking_loop:
-      enabled: true
-      similarity_threshold: 0.85      # 類似度閾値 (0.0-1.0)
-      window_size: 5                  # 比較対象の直近ターン数
-      min_repetitions: 2              # ループ判定に必要な連続繰り返し数
-    tool_loop:
-      enabled: true
-      max_identical_calls: 2          # 同じツール呼び出しの最大許容回数
-      window_size: 6                  # 比較対象の直近ツール呼び出し数
-    rollback:
-      max_retries: 3                  # 1セッションあたりの最大再試行回数
-      recovery_prompt: "..."          # 回復プロンプト（省略可）
 ```
 
 ## 動作
 
 | フック | タイミング | 動作 |
-| --------- | ----------- | ------- |
-| `post_llm_call` | LLM応答後 | assistantメッセージを記録し、思考ループを検知 |
-| `pre_tool_call` | ツール呼び出し前 | ツールループを検知し、ブロック |
-| `on_session_end` | セッション終了 | 状態をクリーンアップ |
-| `on_session_reset` | セッションリセット | 状態を初期化 |
+| ------ | ---------- | ---- |
+| `pre_tool_call` | ツール呼び出し前 | ツールループを検知し `{"action": "block"}` でブロック |
+| `post_llm_call` | ターン完了後 | `assistant_response` を記録し思考ループを検知 |
+| `pre_llm_call` | LLM 呼び出し前 | 前ターンで検出したループの回復通知をエフェメラルコンテキストとして注入 |
+| `on_session_reset` | セッションリセット | セッション状態を削除 |
 
 ## ループ検知アルゴリズム
 
-### 思考ループ
+### ツールループ（厳密一致ベース）
 
-- 直近 N ターンの assistant メッセージを比較
-- 編集距離ベースの類似度で判定（デフォルト閾値 0.85）
-- 連続する類似ペアが閾値以上 → ループ判定
+- 同一 `(tool_name, 正規化引数)` の連続 3 回（`consecutive_threshold`）
+- 直近 10 件中に同一呼び出し 4 回以上（`window_size` / `window_threshold`）
+- A→B→A→B… の交互パターン（周期 2/3、6 件以上連続）
 
-### ツールループ
+### 思考ループ（類似度ベース）
 
-- 直近 M 回のツール呼び出しを比較
-- 同じ (tool_name, args) の繰り返しを検知
-- 交互パターン（A→B→A→B）も検知
+- 直近の `assistant_response` を正規化し、隣接ペアを `difflib` で比較
+- 類似度 0.85 以上のペアが 2 組以上連続で検出
 
-## 巻き戻し
+## LLM 確認
 
-ループ検知時：
+検出時に意図的な繰り返し（ポーリング・CI 待ち等）を除外するため、構造化 LLM 確認を行います。
 
-1. セッションDBからループ開始点以降のメッセージを削除
-2. 回復プロンプトを会話に注入
-3. モデルに異なるアプローチを取るよう通知
+- `is_loop: false`（意図的）と判定されたパターンはセッション内で許可リスト登録
+- 確認失敗時は既定で fail-closed（ブロック）。`confirmation.on_error: allow` で変更可能
+- `confirmation.enabled: false` で確認を無効化（検出時即ブロック）
+
+## 回復通知
+
+ループがブロック・検出された場合、次ターンの LLM 呼び出し時にユーザーメッセージへ
+エフェメラルな回復通知を注入します（プロンプトキャッシュ維持・永続化なし・CLI/ゲートウェイ両対応）。
+
+## 設定
+
+`~/.hermes/config.yaml` に以下を追加（`config.yaml.example` 参照）：
+
+```yaml
+plugins:
+  loop_detector:
+    enabled: true
+    tool_loop:
+      enabled: true
+      consecutive_threshold: 3
+      window_size: 10
+      window_threshold: 4
+      alternating_enabled: true
+      alternating_min_length: 6
+    thinking_loop:
+      enabled: true
+      similarity_threshold: 0.85
+      window_size: 5
+      min_repetitions: 2
+    confirmation:
+      enabled: true
+      on_error: block
+      timeout: 30
+    response:
+      max_blocks_per_session: 5
+      recovery_notice: ""
+```
 
 ## 制限
 
-- プラグインは `pre_tool_call` でツールをブロック可能
-- メッセージ削除は SessionDB/SQLite を直接操作
-- 再試行回数上限で無限ループを防止
+- 巻き戻しは行いません（インメモリ履歴をプラグインから操作する公式手段が存在しないため）。
+  ブロックと通知による抑止に留まります
+- 思考ループはブロックできません（ブロック可能なゲートは `pre_tool_call` のみ）
+- 検出履歴・許可リストはオンメモリのため、プロセス再起動で失われます
+
+詳細な設計仕様は [SPEC.md](SPEC.md) を参照してください。

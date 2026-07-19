@@ -13,6 +13,7 @@ hermes-extensions/
 ├── plugins/                          # Hermes plugins
 │   ├── browser-localhost-block/      # Blocks browser access to localhost
 │   ├── delegate-task-full-inheritance/   # Blocks toolset limitation in delegate_task
+│   ├── loop-detector/                # Detects and blocks LLM thinking/tool-call loops
 │   └── model-providers/              # Model provider plugins (symlinked into ~/.hermes/plugins/model-providers/)
 │       ├── qwen-token-plan/          # Qwen Cloud Token Plan (dedicated subscription tier)
 │       └── zai/                       # Z.AI / GLM Coding Plan override (overrides builtin zai provider)
@@ -92,6 +93,22 @@ hermes config set model.base_url https://token-plan.ap-southeast-1.maas.aliyuncs
 hermes config set model.api_mode anthropic_messages
 hermes config set model.default qwen3.7-max
 ```
+
+### loop-detector
+
+Detects LLM thinking loops and tool-call loops, blocks them, and notifies the model via ephemeral context injection.
+
+**Purpose:**
+
+- Prevents runaway tool-call loops (e.g. the same `git log` command repeated 100+ times)
+- Detects repetitive reasoning patterns in assistant responses
+- LLM confirmation distinguishes intentional repetition (polling, CI waits) from genuine loops
+
+**Behavior:**
+
+- Tool loops are blocked via `pre_tool_call` with an error message fed back to the model
+- Recovery notice is injected as ephemeral context on the next turn's `pre_llm_call` (CLI and gateway compatible)
+- No rollback: blocking + notification only (see SPEC.md §2.2 for rationale)
 
 ### zai (Model Provider)
 
