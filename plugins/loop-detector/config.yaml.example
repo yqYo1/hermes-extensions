@@ -1,22 +1,22 @@
 plugins:
   loop_detector:
     enabled: true
+    tool_loop:
+      enabled: true
+      consecutive_threshold: 3
+      window_size: 10
+      window_threshold: 4
+      alternating_enabled: true
+      alternating_min_length: 6
     thinking_loop:
       enabled: true
       similarity_threshold: 0.85
       window_size: 5
       min_repetitions: 2
-    tool_loop:
-      enabled: true
-      max_identical_calls: 2
-      window_size: 6
     confirmation:
       enabled: true
-    rollback:
-      max_retries: 3
-      recovery_prompt: |
-        [system notification]
-        前回の試行でループが検知されました。以下に注意してください:
-        - 同じ推論や同じツール呼び出しを繰り返さないでください
-        - 異なるアプローチや別のツールを検討してください
-        - すでに試行済みの内容は省略し、次のステップに進んでください
+      on_error: block
+      timeout: 30
+    response:
+      max_blocks_per_session: 5
+      recovery_notice: ""
