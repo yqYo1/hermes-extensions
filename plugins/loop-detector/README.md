@@ -32,7 +32,9 @@ hermes plugins enable loop-detector
 ### 応答ループ（類似度ベース）
 
 - 直近の `assistant_response`（最終応答テキスト）を正規化し、隣接ペアを `difflib` で比較
-- 類似度 0.85 以上のペアが 2 組以上連続で検出
+- **現在も継続中のループのみ検出**（直近が類似ペアで終わる trailing run が 3 以上）。
+  自力脱出済みのループは検出しない
+- 類似度 0.95 以上のペアが直近から 3 組連続で検出
 
 ## LLM 確認
 
@@ -64,9 +66,9 @@ plugins:
       alternating_min_length: 6
     response_loop:
       enabled: true
-      similarity_threshold: 0.85
-      window_size: 5
-      min_repetitions: 2
+      similarity_threshold: 0.95
+      window_size: 10
+      min_repetitions: 3
     confirmation:
       enabled: true
       on_error: block

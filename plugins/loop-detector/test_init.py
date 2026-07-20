@@ -129,9 +129,9 @@ def _make_config(**overrides: object) -> dict[str, object]:
         },
         "response_loop": {
             "enabled": True,
-            "similarity_threshold": 0.85,
-            "window_size": 5,
-            "min_repetitions": 2,
+            "similarity_threshold": 0.95,
+            "window_size": 10,
+            "min_repetitions": 3,
         },
         "confirmation": {
             "enabled": True,

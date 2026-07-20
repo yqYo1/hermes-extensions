@@ -210,32 +210,38 @@ def detect_tool_loop(
 def detect_response_loop(
     responses: list[str],
     *,
-    similarity_threshold: float = 0.85,
-    window_size: int = 5,
-    min_repetitions: int = 2,
+    similarity_threshold: float = 0.95,
+    window_size: int = 10,
+    min_repetitions: int = 3,
 ) -> int | None:
-    """Detect response loops using text similarity.
+    """Detect response loops using text similarity (tail-anchored).
 
-    Normalises each of the last ``window_size`` responses, computes
-    ``difflib.SequenceMatcher.ratio()`` on every adjacent pair, and returns
-    the index in ``responses`` where the first qualifying consecutive run of
-    similar pairs begins.  Returns ``None`` when no loop is found.
+    Detection rule (SPEC §5.2): the response loop must be STILL ONGOING.
+    The trailing run of consecutive similar adjacent pairs — counting
+    backward from the most recent pair — must be >= ``min_repetitions``.
+    Loops the model already escaped by itself (the latest pair is not
+    similar) are NOT flagged: notifying about an already-resolved loop
+    only degrades performance.
+
+    Normalises each of the last ``window_size`` responses and computes
+    ``difflib.SequenceMatcher.ratio()`` on adjacent pairs.  Returns the
+    index in ``responses`` where the trailing similar run begins, or
+    ``None`` when no ongoing loop is found.
 
     ``min_repetitions`` is clamped to ``window_size - 1`` if the caller
     provides a larger value (SPEC §5.2).
     """
     min_repetitions = min(min_repetitions, window_size - 1)
 
-    if len(responses) < window_size or min_repetitions < 1:
+    if len(responses) < 2 or min_repetitions < 1:
         return None
 
     recent = responses[-window_size:]
     normalized = [normalize_text(r) for r in recent]
 
-    current_streak = 0
-    streak_start: int | None = None
-
-    for i in range(len(normalized) - 1):
+    # Trailing run: count consecutive similar pairs backward from the tail.
+    trailing = 0
+    for i in range(len(normalized) - 2, -1, -1):
         n1, n2 = normalized[i], normalized[i + 1]
         if not n1 and not n2:
             sim = 1.0
@@ -245,13 +251,12 @@ def detect_response_loop(
             sim = _text_similarity(recent[i], recent[i + 1])
 
         if sim >= similarity_threshold:
-            current_streak += 1
-            if streak_start is None:
-                streak_start = i
-            if current_streak >= min_repetitions:
-                return len(responses) - window_size + streak_start
+            trailing += 1
         else:
-            current_streak = 0
-            streak_start = None
+            break
+
+    if trailing >= min_repetitions:
+        run_start_in_recent = (len(normalized) - 1) - trailing
+        return len(responses) - len(recent) + max(0, run_start_in_recent)
 
     return None

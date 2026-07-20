@@ -10,9 +10,9 @@ plugins:
       alternating_min_length: 6
     response_loop:
       enabled: true
-      similarity_threshold: 0.85
-      window_size: 5
-      min_repetitions: 2
+      similarity_threshold: 0.95
+      window_size: 10
+      min_repetitions: 3
     confirmation:
       enabled: true
       on_error: block

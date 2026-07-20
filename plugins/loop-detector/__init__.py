@@ -278,9 +278,9 @@ def _on_post_llm_call(
         # Detect.
         result = detect_response_loop(
             list(state["assistant_responses"]),
-            similarity_threshold=tcfg.get("similarity_threshold", 0.85),
-            window_size=tcfg.get("window_size", 5),
-            min_repetitions=tcfg.get("min_repetitions", 2),
+            similarity_threshold=tcfg.get("similarity_threshold", 0.95),
+            window_size=tcfg.get("window_size", 10),
+            min_repetitions=tcfg.get("min_repetitions", 3),
         )
 
         if result is None:

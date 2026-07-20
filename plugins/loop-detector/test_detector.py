@@ -282,11 +282,11 @@ result = detect_tool_loop(h, B, alternating_enabled=False, alternating_min_lengt
 check("alternating disabled: None", result is None)
 
 # =========================================================================
-# detect_response_loop
+# detect_response_loop (tail-anchored, SPEC §5.2)
 # =========================================================================
 print("\n=== detect_response_loop ===")
 
-# Near-identical responses — should detect
+# Escaped loop — should NOT detect (tail pair is dissimilar)
 responses = [
     "Let me analyze the code.",
     "Let me analyze the code.",
@@ -297,15 +297,25 @@ responses = [
 result = detect_response_loop(
     responses, similarity_threshold=0.5, window_size=5, min_repetitions=3
 )
-# responses[-5:] are all 5 entries. Pairs:
-# (0,1): "let me analyze the code." vs "let me analyze the code." → very similar
-# (1,2): "let me analyze the code." vs "let me analyze the code again." → similar
-# (2,3): "let me analyze the code again." vs "let me analyze the code more." → similar
-# (3,4): "let me analyze the code more." vs "i think the answer is {num}." → different
-# Streak of 3, min_repetitions=3 → detect at index 0
-check("response: near-identical streak of 3", result is not None)
+# Trailing run = 0 (last pair is dissimilar) → NOT detected even though a
+# run of 3 similar pairs exists earlier in the window (self-escaped loop).
+check("response: escaped loop not detected (tail dissimilar)", result is None)
+
+# Ongoing loop — trailing run >= 3, SHOULD detect
+responses = [
+    "Totally unrelated opening statement.",
+    "Let me analyze the code.",
+    "Let me analyze the code.",
+    "Let me analyze the code again.",
+    "Let me analyze the code more.",
+]
+result = detect_response_loop(
+    responses, similarity_threshold=0.5, window_size=5, min_repetitions=3
+)
+# Trailing run = 3 (pairs 1-2, 2-3, 3-4 all similar) → detect.
+check("response: ongoing trailing run of 3 detected", result is not None)
 if result is not None:
-    check("response: start index is 0", result == 0)
+    check("response: run starts at index 1", result == 1)
 
 # Different responses — should NOT detect
 responses = [
@@ -320,7 +330,7 @@ result = detect_response_loop(
 )
 check("response: all different = None", result is None)
 
-# Exactly at threshold
+# Non-consecutive identical pairs — trailing run too short
 responses = [
     "Hello world",
     "Hello world",
@@ -331,9 +341,8 @@ responses = [
 result = detect_response_loop(
     responses, similarity_threshold=1.0, window_size=5, min_repetitions=2
 )
-# pairs (0,1) and (3,4) are identical → 1.0, but they're not consecutive
-# (0,1) = 1.0, but (1,2) breaks → streak resets. Then (2,3) breaks, (3,4)=1.0 → streak=1, not enough
-check("response: non-consecutive similar pairs = None", result is None)
+# Trailing run = 1 (only pair 3-4) < 2 → NOT detected.
+check("response: trailing run of 1 < 2 = None", result is None)
 
 # Consecutive identical pairs at the end
 responses = [
@@ -396,10 +405,10 @@ check("clamping: window=2, same response detected", result is not None and resul
 # =========================================================================
 print("\n=== detect_response_loop — not enough data ===")
 
-result = detect_response_loop(["a", "b"], window_size=5, min_repetitions=2)
-check("insufficient data: None", result is None)
+result = detect_response_loop(["a", "b"], window_size=5, min_repetitions=3)
+check("insufficient data (trailing run < reps): None", result is None)
 
-result = detect_response_loop([], window_size=5, min_repetitions=2)
+result = detect_response_loop([], window_size=5, min_repetitions=3)
 check("empty list: None", result is None)
 
 # =========================================================================
