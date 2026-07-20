@@ -8,7 +8,7 @@ plugins:
       window_threshold: 4
       alternating_enabled: true
       alternating_min_length: 6
-    thinking_loop:
+    response_loop:
       enabled: true
       similarity_threshold: 0.85
       window_size: 5

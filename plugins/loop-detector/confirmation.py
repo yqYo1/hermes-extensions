@@ -48,7 +48,7 @@ def _build_instructions(loop_type: str, detail: str) -> str:
 
     Args:
         loop_type: Loop classification (e.g. ``"tool_loop_consecutive"``,
-            ``"tool_loop_window"``, ``"thinking_loop"``).
+            ``"tool_loop_window"``, ``"response_loop"``).
         detail: Human-readable detection description from
             ``Detection.detail``.
 
@@ -94,7 +94,7 @@ def ask_llm_confirmation(
             (expected to have a ``complete_structured`` method matching
             the signature in ``plugin_llm.py``).
         loop_type: Classification of the loop (e.g. ``"tool_loop"``,
-            ``"tool_loop_consecutive"``, ``"thinking_loop"``).
+            ``"tool_loop_consecutive"``, ``"response_loop"``).
         detail: Human-readable description of the detection (from
             ``Detection.detail``).  Should include tool name, repeat
             count, and arguments summary (SPEC §6.2).
@@ -159,7 +159,7 @@ class Allowlist:
       ``(tool_name, canonical_json)``.
     - Tool loops (alternating): the period sequence
       ``list[tuple[str, str]]``.
-    - Thinking loops: the fixed string ``"thinking"``.
+    - Response loops: the fixed string ``"response"``.
     """
 
     def __init__(self) -> None:
@@ -206,11 +206,11 @@ def make_allowlist_key(
     SPEC §6.4 defines pattern keys as:
     - Tool loops → the detection's ``pattern`` attribute (either the
       ``(tool_name, canonical_json)`` tuple or the period sequence list).
-    - Thinking loops → the string ``"thinking"``.
+    - Response loops → the string ``"response"``.
 
     Args:
         loop_type: Loop classification (e.g. ``"tool_loop_consecutive"``,
-            ``"thinking_loop"``).
+            ``"response_loop"``).
         detection: The ``Detection`` instance, if available (required for
             tool loops).
 
@@ -220,6 +220,6 @@ def make_allowlist_key(
     """
     if detection is not None and loop_type.startswith("tool_loop"):
         return detection.pattern
-    if loop_type == "thinking_loop":
-        return "thinking"
+    if loop_type == "response_loop":
+        return "response"
     return loop_type

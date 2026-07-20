@@ -52,7 +52,7 @@ def normalize_tool_call(tool_name: str, args: dict[str, Any]) -> tuple[str, str]
 
 
 def normalize_text(text: str) -> str:
-    """Normalize text for thinking-loop similarity comparison.
+    """Normalize text for response-loop similarity comparison.
 
     Performs (in order):
       1. Lowercasing
@@ -203,18 +203,18 @@ def detect_tool_loop(
 
 
 # ---------------------------------------------------------------------------
-# Thinking-loop detection
+# Response-loop detection
 # ---------------------------------------------------------------------------
 
 
-def detect_thinking_loop(
+def detect_response_loop(
     responses: list[str],
     *,
     similarity_threshold: float = 0.85,
     window_size: int = 5,
     min_repetitions: int = 2,
 ) -> int | None:
-    """Detect thinking loops using text similarity.
+    """Detect response loops using text similarity.
 
     Normalises each of the last ``window_size`` responses, computes
     ``difflib.SequenceMatcher.ratio()`` on every adjacent pair, and returns

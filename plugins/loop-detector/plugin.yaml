@@ -1,6 +1,6 @@
 name: loop-detector
 version: 2.0.0
-description: "Detects LLM thinking loops and tool-call loops, blocks them, and notifies the model via ephemeral context injection."
+description: "Detects LLM response loops and tool-call loops, blocks them, and notifies the model via ephemeral context injection."
 author: yqYo1
 license: MIT
 hooks:

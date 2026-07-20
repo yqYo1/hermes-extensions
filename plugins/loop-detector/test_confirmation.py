@@ -114,7 +114,7 @@ print("\n--- exception with on_error='allow' ---")
 llm = FakeLlm(raise_exc=TimeoutError)
 result = ask_llm_confirmation(
     llm,
-    loop_type="thinking_loop",
+    loop_type="response_loop",
     detail="test detail",
     timeout=1,
     on_error="allow",
@@ -187,7 +187,7 @@ check("empty allowlist does not contain anything", wl.contains("anything") is Fa
 
 pattern_a = ("read_file", '{"path": "/tmp/x"}')
 pattern_b = ("write_file", '{"content": "hi"}')
-thinking_pattern = "thinking"
+response_pattern = "response"
 
 wl.add(pattern_a)
 check("contains pattern_a after add", wl.contains(pattern_a) is True)
@@ -195,12 +195,12 @@ check("does not contain pattern_b", wl.contains(pattern_b) is False)
 check("snapshot includes pattern_a", pattern_a in wl.snapshot())
 check("snapshot excludes pattern_b", pattern_b not in wl.snapshot())
 
-wl.add(thinking_pattern)
-check("contains thinking pattern", wl.contains(thinking_pattern) is True)
+wl.add(response_pattern)
+check("contains response pattern", wl.contains(response_pattern) is True)
 
 wl.remove(pattern_a)
 check("pattern_a removed", wl.contains(pattern_a) is False)
-check("thinking_pattern still present", wl.contains(thinking_pattern) is True)
+check("response_pattern still present", wl.contains(response_pattern) is True)
 
 wl.clear()
 check("empty after clear", len(wl.snapshot()) == 0)
@@ -238,9 +238,9 @@ check("alternating key is period sequence", isinstance(key, list))
 if isinstance(key, list):
     check("period sequence length is 2", len(key) == 2)
 
-# Thinking loop
-key = make_allowlist_key("thinking_loop")
-check("thinking_loop key is 'thinking'", key == "thinking")
+# Response loop
+key = make_allowlist_key("response_loop")
+check("response_loop key is 'response'", key == "response")
 
 # Unknown loop type
 key = make_allowlist_key("unknown_loop")

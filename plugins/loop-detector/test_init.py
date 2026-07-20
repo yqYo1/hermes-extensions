@@ -127,7 +127,7 @@ def _make_config(**overrides: object) -> dict[str, object]:
             "alternating_enabled": True,
             "alternating_min_length": 6,
         },
-        "thinking_loop": {
+        "response_loop": {
             "enabled": True,
             "similarity_threshold": 0.85,
             "window_size": 5,

@@ -12,7 +12,7 @@ sys.path.insert(0, os.path.dirname(__file__))
 from detector import (
     Detection,
     detect_tool_loop,
-    detect_thinking_loop,
+    detect_response_loop,
     normalize_text,
     normalize_tool_call,
 )
@@ -282,9 +282,9 @@ result = detect_tool_loop(h, B, alternating_enabled=False, alternating_min_lengt
 check("alternating disabled: None", result is None)
 
 # =========================================================================
-# detect_thinking_loop
+# detect_response_loop
 # =========================================================================
-print("\n=== detect_thinking_loop ===")
+print("\n=== detect_response_loop ===")
 
 # Near-identical responses — should detect
 responses = [
@@ -294,7 +294,7 @@ responses = [
     "Let me analyze the code more.",
     "I think the answer is 42.",
 ]
-result = detect_thinking_loop(
+result = detect_response_loop(
     responses, similarity_threshold=0.5, window_size=5, min_repetitions=3
 )
 # responses[-5:] are all 5 entries. Pairs:
@@ -303,9 +303,9 @@ result = detect_thinking_loop(
 # (2,3): "let me analyze the code again." vs "let me analyze the code more." → similar
 # (3,4): "let me analyze the code more." vs "i think the answer is {num}." → different
 # Streak of 3, min_repetitions=3 → detect at index 0
-check("thinking: near-identical streak of 3", result is not None)
+check("response: near-identical streak of 3", result is not None)
 if result is not None:
-    check("thinking: start index is 0", result == 0)
+    check("response: start index is 0", result == 0)
 
 # Different responses — should NOT detect
 responses = [
@@ -315,10 +315,10 @@ responses = [
     "Fourth analysis.",
     "Done.",
 ]
-result = detect_thinking_loop(
+result = detect_response_loop(
     responses, similarity_threshold=0.9, window_size=5, min_repetitions=2
 )
-check("thinking: all different = None", result is None)
+check("response: all different = None", result is None)
 
 # Exactly at threshold
 responses = [
@@ -328,12 +328,12 @@ responses = [
     "Hello world",
     "Hello world",
 ]
-result = detect_thinking_loop(
+result = detect_response_loop(
     responses, similarity_threshold=1.0, window_size=5, min_repetitions=2
 )
 # pairs (0,1) and (3,4) are identical → 1.0, but they're not consecutive
 # (0,1) = 1.0, but (1,2) breaks → streak resets. Then (2,3) breaks, (3,4)=1.0 → streak=1, not enough
-check("thinking: non-consecutive similar pairs = None", result is None)
+check("response: non-consecutive similar pairs = None", result is None)
 
 # Consecutive identical pairs at the end
 responses = [
@@ -343,21 +343,21 @@ responses = [
     "D",
     "D",
 ]
-result = detect_thinking_loop(
+result = detect_response_loop(
     responses, similarity_threshold=0.9, window_size=5, min_repetitions=1
 )
-check("thinking: single pair at end, min_reps=1", result is not None)
+check("response: single pair at end, min_reps=1", result is not None)
 if result is not None:
-    check("thinking: start index is 3", result == 3)
+    check("response: start index is 3", result == 3)
 
 # =========================================================================
-# detect_thinking_loop — min_repetitions clamping
+# detect_response_loop — min_repetitions clamping
 # =========================================================================
-print("\n=== detect_thinking_loop — min_repetitions clamping ===")
+print("\n=== detect_response_loop — min_repetitions clamping ===")
 
 resp = ["a", "b", "c", "d", "e"]
 # window_size=5 → max pairs = 4 → clamp min_repetitions to 4
-result = detect_thinking_loop(resp, window_size=5, min_repetitions=10)
+result = detect_response_loop(resp, window_size=5, min_repetitions=10)
 # After clamping: min_repetitions=4, which is > (5-1)=4, no wait, min(10, 4) = 4
 # So it clamps to 4. With 5 entries, there are only 4 adjacent pairs.
 # Our entries are all different, so max streak = 0.
@@ -366,7 +366,7 @@ check("clamping: returns None with all different", result is None)
 # Verify clamping: provide responses that are all identical, window_size=5
 # With min_repetitions=10, it should clamp to 4
 resp = ["same"] * 5
-result = detect_thinking_loop(
+result = detect_response_loop(
     resp, similarity_threshold=0.0, window_size=5, min_repetitions=10
 )
 # Clamped: min_repetitions=4. All 5 responses are "same", so normalized is ["same"]*5
@@ -378,13 +378,13 @@ if result is not None:
 
 # window_size=2, min_repetitions=2 → clamp to 1
 resp = ["x", "y"]
-result = detect_thinking_loop(resp, window_size=2, min_repetitions=2)
+result = detect_response_loop(resp, window_size=2, min_repetitions=2)
 # Clamped: min_repetitions = min(2, 1) = 1. 2 entries → 1 adjacent pair.
 # Pair (0,1) with similarity ~0 (different) → no match → None
 check("clamping: window=2, reps=2 clamped to 1, different = None", result is None)
 
 resp = ["hello", "hello"]
-result = detect_thinking_loop(
+result = detect_response_loop(
     resp, similarity_threshold=0.9, window_size=2, min_repetitions=2
 )
 # Clamped: min_repetitions=1. Pair (0,1) = 1.0 ≥ 0.9 → streak=1 ≥ 1
@@ -392,14 +392,14 @@ result = detect_thinking_loop(
 check("clamping: window=2, same response detected", result is not None and result == 0)
 
 # =========================================================================
-# detect_thinking_loop — not enough data
+# detect_response_loop — not enough data
 # =========================================================================
-print("\n=== detect_thinking_loop — not enough data ===")
+print("\n=== detect_response_loop — not enough data ===")
 
-result = detect_thinking_loop(["a", "b"], window_size=5, min_repetitions=2)
+result = detect_response_loop(["a", "b"], window_size=5, min_repetitions=2)
 check("insufficient data: None", result is None)
 
-result = detect_thinking_loop([], window_size=5, min_repetitions=2)
+result = detect_response_loop([], window_size=5, min_repetitions=2)
 check("empty list: None", result is None)
 
 # =========================================================================

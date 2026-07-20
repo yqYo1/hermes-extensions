@@ -13,7 +13,7 @@ from typing import Any
 try:
     from .detector import (
         Detection,
-        detect_thinking_loop,
+        detect_response_loop,
         detect_tool_loop,
         normalize_tool_call,
     )  # type: ignore[attr-defined]
@@ -21,7 +21,7 @@ try:
 except ImportError:
     from detector import (
         Detection,
-        detect_thinking_loop,
+        detect_response_loop,
         detect_tool_loop,
         normalize_tool_call,
     )
@@ -58,8 +58,8 @@ def _tool_cfg() -> dict[str, Any]:
     return _cfg().get("tool_loop", {})
 
 
-def _thinking_cfg() -> dict[str, Any]:
-    return _cfg().get("thinking_loop", {})
+def _response_cfg() -> dict[str, Any]:
+    return _cfg().get("response_loop", {})
 
 
 def _confirm_cfg() -> dict[str, Any]:
@@ -127,13 +127,13 @@ def _build_recovery_notice(detection: Detection) -> str:
     return _DEFAULT_RECOVERY_NOTICE.format(summary=detection.detail)
 
 
-def _build_thinking_recovery_notice() -> str:
-    """Build recovery notice for a thinking-loop detection (SPEC §8.3)."""
+def _build_response_recovery_notice() -> str:
+    """Build recovery notice for a response-loop detection (SPEC §8.3)."""
     override = _response_cfg().get("recovery_notice", "")
     if override:
         return override
     return _DEFAULT_RECOVERY_NOTICE.format(
-        summary="thinking loop (similar responses repeated)"
+        summary="response loop (similar responses repeated)"
     )
 
 
@@ -245,7 +245,7 @@ def _on_pre_tool_call(
 
 
 # ---------------------------------------------------------------------------
-# Hook: post_llm_call — thinking-loop detection (SPEC §5)
+# Hook: post_llm_call — response-loop detection (SPEC §5)
 # ---------------------------------------------------------------------------
 
 
@@ -254,7 +254,7 @@ def _on_post_llm_call(
     assistant_response: str | None = None,
     **kwargs: Any,
 ) -> None:
-    """Handle ``post_llm_call`` — record response and check for thinking loops.
+    """Handle ``post_llm_call`` — record response and check for response loops.
 
     Never blocks; sets ``pending_recovery`` for next turn on detection.
     """
@@ -264,7 +264,7 @@ def _on_post_llm_call(
 
         state = _get_or_create_state(session_id)
 
-        tcfg = _thinking_cfg()
+        tcfg = _response_cfg()
         if not tcfg.get("enabled", True):
             return None
 
@@ -276,7 +276,7 @@ def _on_post_llm_call(
         state["assistant_responses"].append(assistant_response)
 
         # Detect.
-        result = detect_thinking_loop(
+        result = detect_response_loop(
             list(state["assistant_responses"]),
             similarity_threshold=tcfg.get("similarity_threshold", 0.85),
             window_size=tcfg.get("window_size", 5),
@@ -287,27 +287,27 @@ def _on_post_llm_call(
             return None
 
         # Allowlisted?
-        thinking_key = make_allowlist_key("thinking_loop")
-        if state["allowlist"].contains(thinking_key):
+        response_key = make_allowlist_key("response_loop")
+        if state["allowlist"].contains(response_key):
             return None
 
-        # ── LLM confirmation for thinking loop ──────────────────────────
+        # ── LLM confirmation for response loop ──────────────────────────
         ccfg = _confirm_cfg()
         if ccfg.get("enabled", True):
             is_loop = ask_llm_confirmation(
                 _ctx.llm,
-                "thinking_loop",
-                f"Thinking loop detected at response index {result}",
+                "response_loop",
+                f"Response loop detected at response index {result}",
                 timeout=ccfg.get("timeout", 30),
                 on_error=ccfg.get("on_error", "block"),
             )
 
             if not is_loop:
-                state["allowlist"].add(thinking_key)
+                state["allowlist"].add(response_key)
                 return None
 
         # Loop confirmed — set recovery notice (SPEC §8.3).  Never block.
-        state["pending_recovery"] = _build_thinking_recovery_notice()
+        state["pending_recovery"] = _build_response_recovery_notice()
         return None
 
     except Exception:

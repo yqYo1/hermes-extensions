@@ -3,7 +3,7 @@
 Hermes Agent のセッション中に以下の 2 種類のループを検知し、ブロックと通知によって被害を抑止します。
 
 1. **ツール呼び出しループ（Tool Loop）**: 同じツールを同じ引数で繰り返し呼び出す振る舞いを検知・ブロック
-2. **思考ループ（Thinking Loop）**: 同じ推論パターンを繰り返し出力する LLM の振る舞いを検知・通知
+2. **応答ループ（Response Loop）**: LLM が最終応答テキスト（`assistant_response`）で同じ内容・同じ推論パターンを繰り返し出力する振る舞いを検知・通知（thinking／推論トレースではなく通常出力が対象）
 
 ## インストール
 
@@ -17,7 +17,7 @@ hermes plugins enable loop-detector
 | フック | タイミング | 動作 |
 | ------ | ---------- | ---- |
 | `pre_tool_call` | ツール呼び出し前 | ツールループを検知し `{"action": "block"}` でブロック |
-| `post_llm_call` | ターン完了後 | `assistant_response` を記録し思考ループを検知 |
+| `post_llm_call` | ターン完了後 | `assistant_response` を記録し応答ループを検知 |
 | `pre_llm_call` | LLM 呼び出し前 | 前ターンで検出したループの回復通知をエフェメラルコンテキストとして注入 |
 | `on_session_reset` | セッションリセット | セッション状態を削除 |
 
@@ -29,9 +29,9 @@ hermes plugins enable loop-detector
 - 直近 10 件中に同一呼び出し 4 回以上（`window_size` / `window_threshold`）
 - A→B→A→B… の交互パターン（周期 2/3、6 件以上連続）
 
-### 思考ループ（類似度ベース）
+### 応答ループ（類似度ベース）
 
-- 直近の `assistant_response` を正規化し、隣接ペアを `difflib` で比較
+- 直近の `assistant_response`（最終応答テキスト）を正規化し、隣接ペアを `difflib` で比較
 - 類似度 0.85 以上のペアが 2 組以上連続で検出
 
 ## LLM 確認
@@ -62,7 +62,7 @@ plugins:
       window_threshold: 4
       alternating_enabled: true
       alternating_min_length: 6
-    thinking_loop:
+    response_loop:
       enabled: true
       similarity_threshold: 0.85
       window_size: 5
@@ -80,7 +80,7 @@ plugins:
 
 - 巻き戻しは行いません（インメモリ履歴をプラグインから操作する公式手段が存在しないため）。
   ブロックと通知による抑止に留まります
-- 思考ループはブロックできません（ブロック可能なゲートは `pre_tool_call` のみ）
+- 応答ループはブロックできません（ブロック可能なゲートは `pre_tool_call` のみ）
 - 検出履歴・許可リストはオンメモリのため、プロセス再起動で失われます
 
 詳細な設計仕様は [SPEC.md](SPEC.md) を参照してください。
