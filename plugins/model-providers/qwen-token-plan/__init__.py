@@ -17,8 +17,7 @@ budget/preserve controls vary:
   ``none``/``minimal``/``low``/``medium``/``high``/``xhigh``/``max``.
 * **DeepSeek models** (deepseek-v4-pro): ``reasoning_effort`` (top-level)
   with ``low``/``medium``/``high``/``xhigh``/``max`` (where ``low`` and
-  ``medium`` behave like ``high``, and ``xhigh`` like ``max``) plus a
-  ``thinking_budget`` cap.
+  ``medium`` behave like ``high``, and ``xhigh`` like ``max``).
 
 Wire-format references (Qwen Cloud official docs):
   - Thinking: docs.qwencloud.com/developer-guides/text-generation/thinking
@@ -53,20 +52,6 @@ _DEFAULT_THINKING_BUDGETS: dict[str, int] = {
     "xhigh": 65536,
     "max": 131072,
     "ultra": 262144,
-}
-
-# Default thinking_budget (max thinking tokens) for DeepSeek models.
-# DeepSeek-V4-Pro has a shared max_tokens/thinking_budget of 393,216; these
-# defaults stay well under that ceiling.  Override per level via
-# QWEN_TOKEN_PLAN_DEEPSEEK_THINKING_BUDGET_<LEVEL>.
-_DEFAULT_DEEPSEEK_THINKING_BUDGETS: dict[str, int] = {
-    "minimal": 1024,
-    "low": 4096,
-    "medium": 16384,
-    "high": 65536,
-    "xhigh": 131072,
-    "max": 262144,
-    "ultra": 393216,
 }
 
 # Qwen models that support preserve_thinking (carry reasoning_content across
@@ -244,7 +229,7 @@ class QwenTokenPlanProfile(ProviderProfile):
         top_level: dict[str, Any],
         effort: str,
     ) -> None:
-        """DeepSeek family: enable_thinking + reasoning_effort + thinking_budget.
+        """DeepSeek family: enable_thinking + reasoning_effort (top-level).
 
         Official mapping: low/medium→high, xhigh→max.  reasoning_effort is
         sent as a top-level parameter.
@@ -254,13 +239,6 @@ class QwenTokenPlanProfile(ProviderProfile):
             mapped = _DEEPSEEK_EFFORT_MAP.get(effort)
             if mapped and mapped in _DEEPSEEK_VALID_EFFORTS:
                 top_level["reasoning_effort"] = mapped
-            budget = _resolve_budget(
-                effort,
-                "QWEN_TOKEN_PLAN_DEEPSEEK_THINKING_BUDGET",
-                _DEFAULT_DEEPSEEK_THINKING_BUDGETS,
-            )
-            if budget is not None:
-                extra_body["thinking_budget"] = budget
 
 
 # -- Registration -------------------------------------------------------------
