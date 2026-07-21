@@ -1,6 +1,6 @@
 # Qwen Cloud Token Plan Provider
 
-A Hermes Agent model-provider plugin for [Qwen Cloud Token Plan](https://www.qwencloud.com/pricing/token-plan) — a dedicated subscription tier (Personal / Team Edition) with its own endpoint and API keys.
+A Hermes Agent model-provider plugin for [Qwen Cloud Token Plan](https://www.qwencloud.com/pricing/token-plan) — a dedicated subscription tier (Personal Edition) with its own endpoint and API keys.
 
 ## Why a separate provider?
 
@@ -17,7 +17,7 @@ Using a dedicated provider avoids cross-tier credential confusion and keeps the 
 The Personal Edition exposes the following reasoning models (see the [official overview](https://docs.qwencloud.com/token-plan/personal/token-plan-personal-overview)):
 
 | Model | Family | Capabilities |
-|-------|--------|-------------|
+| ------- | -------- | ------------- |
 | `qwen3.8-max-preview` | Qwen | Reasoning, visual understanding, text generation |
 | `qwen3.7-max` | Qwen | Reasoning, text generation |
 | `qwen3.7-plus` | Qwen | Reasoning, visual understanding, text generation |
@@ -40,7 +40,7 @@ Provider plugins auto-load on the next session. Verify with `hermes doctor`.
 ### Environment variables
 
 | Variable | Required | Description |
-|----------|----------|-------------|
+| ---------- | ---------- | ------------- |
 | `QWEN_TOKEN_PLAN_API_KEY` | Yes | Token Plan API key (starts with `sk-sp-`). Generated from the [Token Plan console](https://home.qwencloud.com/api-keys). Shown in full only once — save it immediately. |
 | `QWEN_TOKEN_PLAN_BASE_URL` | No | Override the inference endpoint. Set this to switch protocols (see below). Falls back to the OpenAI-compatible default. |
 | `QWEN_TOKEN_PLAN_THINKING_BUDGET_<LEVEL>` | No | Override the default `thinking_budget` (int, Qwen family) for a specific effort level. `<LEVEL>` is one of `MINIMAL`, `LOW`, `MEDIUM`, `HIGH`, `XHIGH`, `MAX`, `ULTRA`. Example: `QWEN_TOKEN_PLAN_THINKING_BUDGET_HIGH=49152`. |
@@ -56,7 +56,7 @@ QWEN_TOKEN_PLAN_API_KEY=sk-sp-xxxxxxxx
 Token Plan supports two API protocols. Pick one via `model.base_url`:
 
 | Protocol | Base URL | `api_mode` |
-|----------|----------|------------|
+| ---------- | ---------- | ------------ |
 | OpenAI compatible (default) | `https://token-plan.ap-southeast-1.maas.aliyuncs.com/compatible-mode/v1` | `chat_completions` (auto-detected) |
 | Anthropic compatible | `https://token-plan.ap-southeast-1.maas.aliyuncs.com/apps/anthropic` | `anthropic_messages` (auto-detected) |
 
@@ -93,7 +93,7 @@ Hermes effort levels (ascending): `minimal < low < medium < high < xhigh < max <
 #### Qwen models (`qwen3.*`)
 
 | Parameter | Type | Location | Description |
-|-----------|------|----------|-------------|
+| ----------- | ------ | ---------- | ------------- |
 | `enable_thinking` | bool | `extra_body` | Toggle thinking on/off. `false` when effort is `none`/disabled. |
 | `thinking_budget` | int | `extra_body` | Max thinking tokens. Derived from effort level (overridable via env var). |
 | `preserve_thinking` | bool | `extra_body` | Carry `reasoning_content` across turns. Enabled on supported models only. |
@@ -103,7 +103,7 @@ Models that support `preserve_thinking`: `qwen3.8-max-preview`, `qwen3.7-max`, `
 #### GLM models (`glm-5.2`)
 
 | Parameter | Type | Location | Description |
-|-----------|------|----------|-------------|
+| ----------- | ------ | ---------- | ------------- |
 | `enable_thinking` | bool | `extra_body` | Toggle thinking on/off. |
 | `reasoning_effort` | str | top-level | One of `none`, `minimal`, `low`, `medium`, `high`, `xhigh`, `max`. Hermes `ultra` clamps to `max`. |
 
@@ -112,7 +112,7 @@ The GLM hierarchy matches Hermes 1:1 (same 7 levels). Reference: [Qwen Cloud GLM
 #### DeepSeek models (`deepseek-v4-pro`)
 
 | Parameter | Type | Location | Description |
-|-----------|------|----------|-------------|
+| ----------- | ------ | ---------- | ------------- |
 | `enable_thinking` | bool | `extra_body` | Toggle thinking on/off. |
 | `reasoning_effort` | str | top-level | One of `low`, `medium`, `high`, `xhigh`, `max`. Hermes levels collapse per the official mapping. |
 
@@ -129,7 +129,7 @@ For all families, effort `none` or `enabled: false` sends `enable_thinking: fals
 Default `thinking_budget` values per effort level (Qwen family):
 
 | Effort | Default budget |
-|--------|---------------|
+| -------- | --------------- |
 | `minimal` | 512 |
 | `low` | 2,048 |
 | `medium` | 8,192 |
