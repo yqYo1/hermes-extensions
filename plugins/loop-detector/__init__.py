@@ -374,11 +374,13 @@ def _llm_request_middleware(
         if recovery is None:
             return None
 
-        # Pop so it's delivered exactly once (SPEC §8.1).
-        state["pending_recovery"] = None
-
+        # Validate BEFORE popping — a failed injection must leave
+        # pending_recovery set so the pre_llm_call fallback can deliver it.
         if request is None or "messages" not in request:
             return None
+
+        # Pop so it's delivered exactly once (SPEC §8.1).
+        state["pending_recovery"] = None
 
         # Deep copy — never mutate the original (SPEC §11).
         modified = copy.deepcopy(request)

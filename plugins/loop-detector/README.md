@@ -3,7 +3,7 @@
 Hermes Agent のセッション中に以下の 2 種類のループを検知し、ブロックと通知によって被害を抑止します。
 
 1. **ツール呼び出しループ（Tool Loop）**: 同じツールを同じ引数で繰り返し呼び出す振る舞いを検知・ブロック
-2. **応答ループ（Response Loop）**: LLM が最終応答テキスト（`assistant_response`）で同じ内容・同じ推論パターンを繰り返し出力する振る舞いを検知・通知（thinking／推論トレースではなく通常出力が対象）
+2. **応答ループ（Response Loop）**: LLM が出力テキスト（`assistant_message.content`、全 API 呼び出しの出力でターン内の中間出力を含む）で同じ内容・同じ推論パターンを繰り返し出力する振る舞いを検知・通知（thinking／推論トレースではなく通常出力が対象）
 
 ## インストール
 
@@ -14,11 +14,12 @@ hermes plugins enable loop-detector
 
 ## 動作
 
-| フック | タイミング | 動作 |
+| フック / middleware | タイミング | 動作 |
 | ------ | ---------- | ---- |
 | `pre_tool_call` | ツール呼び出し前 | ツールループを検知し `{"action": "block"}` でブロック |
-| `post_llm_call` | ターン完了後 | `assistant_response` を記録し応答ループを検知 |
-| `pre_llm_call` | LLM 呼び出し前 | 前ターンで検出したループの回復通知をエフェメラルコンテキストとして注入 |
+| `post_api_request` | LLM API 呼び出しごと | `assistant_message.content` を記録し応答ループを検知（ターン内の中間出力を含む・割り込み時も発火） |
+| `llm_request`（middleware） | LLM API 呼び出し直前 | 応答ループ検出時、ターン内の次の API リクエストに回復通知を即時注入 |
+| `pre_llm_call` | ターン開始時 | ターン内で注入されなかった回復通知を次ターンに注入（補助） |
 | `on_session_reset` | セッションリセット | セッション状態を削除 |
 
 ## ループ検知アルゴリズム
@@ -31,7 +32,7 @@ hermes plugins enable loop-detector
 
 ### 応答ループ（類似度ベース）
 
-- 直近の `assistant_response`（最終応答テキスト）を正規化し、隣接ペアを `difflib` で比較
+- 直近の `assistant_message.content`（全 API 呼び出しの出力テキスト、ターン内の中間出力を含む）を正規化し、隣接ペアを `difflib` で比較
 - **現在も継続中のループのみ検出**（直近が類似ペアで終わる trailing run が 3 以上）。
   自力脱出済みのループは検出しない
 - 類似度 0.95 以上のペアが直近から 3 組連続で検出
