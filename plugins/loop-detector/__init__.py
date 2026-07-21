@@ -6,9 +6,12 @@ SPEC v2.0.0: hook wiring + session state + block/notify flow.
 from __future__ import annotations
 
 import copy
+import logging
 import threading
 from collections import deque
 from typing import Any
+
+logger = logging.getLogger(__name__)
 
 # Support both relative (package) and direct (standalone test) import paths.
 try:
@@ -480,7 +483,7 @@ def register(ctx: Any) -> None:
     _ctx = ctx
 
     if not _enabled():
-        print("[loop-detector] disabled in config, skipping registration.")
+        logger.info("[loop-detector] disabled in config, skipping registration.")
         return
 
     ctx.register_hook("pre_tool_call", _on_pre_tool_call)
@@ -490,4 +493,4 @@ def register(ctx: Any) -> None:
 
     ctx.register_middleware("llm_request", _llm_request_middleware)
 
-    print("[loop-detector] registered (v2.0.0).")
+    logger.info("[loop-detector] registered (v2.0.0).")

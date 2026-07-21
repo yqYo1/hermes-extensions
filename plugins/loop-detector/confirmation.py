@@ -12,7 +12,10 @@ This module provides:
 
 from __future__ import annotations
 
+import logging
 from typing import Any
+
+logger = logging.getLogger(__name__)
 
 try:  # Package import (normal plugin loading)
     from .detector import Detection
@@ -121,24 +124,31 @@ def ask_llm_confirmation(
         if result.content_type == "json" and isinstance(result.parsed, dict):
             is_loop = bool(result.parsed.get("is_loop", True))
             reason = str(result.parsed.get("reason", "no reason provided"))
-            print(
-                f"[loop-detector] LLM confirmation: is_loop={is_loop}, reason={reason}"
+            logger.debug(
+                "[loop-detector] LLM confirmation: is_loop=%s, reason=%s",
+                is_loop,
+                reason,
             )
             return is_loop
 
         # Parse failure — content_type is not "json" or parsed is None
-        print(
-            f"[loop-detector] LLM confirmation: parse failure "
-            f"(content_type={result.content_type!r}, "
-            f"parsed={result.parsed!r}), "
-            f"on_error={on_error!r} → {'block' if on_error == 'block' else 'allow'}"
+        logger.warning(
+            "[loop-detector] LLM confirmation: parse failure "
+            "(content_type=%r, parsed=%r), on_error=%r → %s",
+            result.content_type,
+            result.parsed,
+            on_error,
+            "block" if on_error == "block" else "allow",
         )
         return on_error == "block"
 
     except Exception as exc:
-        print(
-            f"[loop-detector] LLM confirmation: {type(exc).__name__}: {exc}, "
-            f"on_error={on_error!r} → {'block' if on_error == 'block' else 'allow'}"
+        logger.warning(
+            "[loop-detector] LLM confirmation: %s: %s, on_error=%r → %s",
+            type(exc).__name__,
+            exc,
+            on_error,
+            "block" if on_error == "block" else "allow",
         )
         return on_error == "block"
 
