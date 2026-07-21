@@ -82,6 +82,10 @@ def _resp_cfg() -> dict[str, Any]:
 
 
 def _make_default_state() -> dict[str, Any]:
+    # Per-turn (cleared at turn start in _on_pre_llm_call):
+    #   tool_calls, assistant_responses, blocked_this_turn, response_detected_this_turn
+    # Per-session (persists across turns):
+    #   allowlist, block_count, pending_recovery
     return {
         "tool_calls": deque(maxlen=50),
         "assistant_responses": deque(maxlen=50),
@@ -418,6 +422,10 @@ def _on_pre_llm_call(
             return None
 
         state = _get_or_create_state(session_id)
+
+        # Clear per-turn detection history (loops are intra-turn phenomena).
+        state["tool_calls"].clear()
+        state["assistant_responses"].clear()
 
         # Clear per-turn tracking (SPEC §9.1: cleared at start of next turn).
         state["blocked_this_turn"].clear()

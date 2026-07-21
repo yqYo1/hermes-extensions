@@ -319,10 +319,18 @@ check("pending_recovery cleared after delivery", s3_state["pending_recovery"] is
 r_no_recovery = _on_pre_llm_call(session_id="s3")
 check("second pre_llm_call returns None", r_no_recovery is None)
 
-# Also verify blocked_this_turn was cleared by pre_llm_call.
+# Also verify per-turn state was cleared by pre_llm_call.
 check(
     "blocked_this_turn is empty (cleared by pre_llm_call)",
     len(s3_state["blocked_this_turn"]) == 0,
+)
+check(
+    "tool_calls deque is empty (cleared at turn start)",
+    len(s3_state["tool_calls"]) == 0,
+)
+check(
+    "assistant_responses deque is empty (cleared at turn start)",
+    len(s3_state["assistant_responses"]) == 0,
 )
 
 # =====================================================================
@@ -676,22 +684,85 @@ check(
     "blocked_this_turn cleared by pre_llm_call",
     len(state["blocked_this_turn"]) == 0,
 )
+check(
+    "tool_calls deque cleared by pre_llm_call",
+    len(state["tool_calls"]) == 0,
+)
+check(
+    "assistant_responses deque cleared by pre_llm_call",
+    len(state["assistant_responses"]) == 0,
+)
 
 # Second pre_llm_call → None (nothing left).
 r2 = _on_pre_llm_call(session_id="s11")
 check("second pre_llm_call returns None (no more recovery)", r2 is None)
 
 # =====================================================================
-# 12. Response-loop with intentional verdict (allowlisted)
+# 12. Deque clearing on pre_llm_call
 # =====================================================================
-print("\n=== 12. Response-loop with intentional verdict (allowlisted) ===\n")
+print("\n=== 12. Deque clearing on pre_llm_call ===\n")
+
+_reset()
+mod._ctx = _FakeCtx(confirm_is_loop=True)
+
+state = mod._get_or_create_state("s12")
+
+# Populate both deques with test data.
+state["tool_calls"].append(("tool_a", "{}"))
+state["tool_calls"].append(("tool_b", '{"key": "val"}'))
+state["assistant_responses"].append("First response")
+state["assistant_responses"].append("Second response")
+
+check(
+    "tool_calls has 2 entries before pre_llm_call",
+    len(state["tool_calls"]) == 2,
+)
+check(
+    "assistant_responses has 2 entries before pre_llm_call",
+    len(state["assistant_responses"]) == 2,
+)
+
+# Call pre_llm_call — should clear both deques.
+r = _on_pre_llm_call(session_id="s12")
+check("pre_llm_call returns None (no pending recovery)", r is None)
+check(
+    "tool_calls deque is empty after pre_llm_call",
+    len(state["tool_calls"]) == 0,
+)
+check(
+    "assistant_responses deque is empty after pre_llm_call",
+    len(state["assistant_responses"]) == 0,
+)
+check(
+    "blocked_this_turn is empty",
+    len(state["blocked_this_turn"]) == 0,
+)
+check(
+    "response_detected_this_turn is False",
+    state["response_detected_this_turn"] is False,
+)
+
+# Verify per-session fields survive.
+check(
+    "allowlist survives (per-session)",
+    state["allowlist"] is not None,
+)
+check(
+    "block_count survives (per-session)",
+    state["block_count"] == 0,
+)
+
+# =====================================================================
+# 13. Response-loop with intentional verdict (allowlisted)
+# =====================================================================
+print("\n=== 13. Response-loop with intentional verdict (allowlisted) ===\n")
 
 _reset()
 mod._ctx = _FakeCtx(confirm_is_loop=False)
 
-_setup_response_loop_detection("s12")
+_setup_response_loop_detection("s13")
 
-state = mod._get_or_create_state("s12")
+state = mod._get_or_create_state("s13")
 # With confirm_is_loop=False, the confirmation returns False (intentional).
 # So pending_recovery should NOT be set.
 check(
@@ -710,9 +781,9 @@ check(
 )
 
 # =====================================================================
-# 13. post_api_request with disabled response_loop
+# 14. post_api_request with disabled response_loop
 # =====================================================================
-print("\n=== 13. post_api_request with disabled response_loop ===\n")
+print("\n=== 14. post_api_request with disabled response_loop ===\n")
 
 _reset()
 mod._ctx = _FakeCtx(confirm_is_loop=True)
@@ -727,7 +798,7 @@ try:
     }
 
     r = _on_post_api_request(
-        session_id="s13",
+        session_id="s14",
         assistant_message=_FakeAssistantMessage("test"),
     )
     check("response_loop disabled → None", r is None)
@@ -735,9 +806,9 @@ finally:
     mod._cfg = original_cfg
 
 # =====================================================================
-# 14. Session eviction when _MAX_TRACKED_SESSIONS is reached
+# 15. Session eviction when _MAX_TRACKED_SESSIONS is reached
 # =====================================================================
-print("\n=== 14. Session eviction when _MAX_TRACKED_SESSIONS is reached ===\n")
+print("\n=== 15. Session eviction when _MAX_TRACKED_SESSIONS is reached ===\n")
 
 _reset()
 mod._ctx = _FakeCtx(confirm_is_loop=True)
