@@ -217,6 +217,20 @@
               '';
               installPhase = "mkdir -p $out";
             };
+
+            # Plugin tests: loop-detector
+            plugin-tests-loop-detector = pkgs.stdenv.mkDerivation {
+              name = "plugin-tests-loop-detector";
+              src = self;
+              nativeBuildInputs = [ pkgs.python3 ];
+              buildPhase = ''
+                cd plugins/loop-detector
+                python3 test_detector.py \
+                  && python3 test_confirmation.py \
+                  && python3 test_init.py
+              '';
+              installPhase = "mkdir -p $out";
+            };
           };
 
           # Development shell

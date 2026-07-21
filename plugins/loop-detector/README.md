@@ -79,6 +79,45 @@ plugins:
       recovery_notice: ""
 ```
 
+## テスト
+
+テストは**ログデータに依存しないもの**と**依存するもの**に分かれています。
+
+### CI テスト（ログデータ非依存）
+
+`test_detector.py`・`test_confirmation.py`・`test_init.py` はスタブベースで、ローカルの
+ログデータに依存しません。CI（`plugin-tests-loop-detector` チェック）で実行され、
+`plugins/loop-detector/` 内に変更がある PR のみで動作します。
+
+```bash
+# 個別実行
+python3 test_detector.py
+python3 test_confirmation.py
+python3 test_init.py
+
+# CI と同じチェック
+nix build .#checks.x86_64-linux.plugin-tests-loop-detector
+```
+
+### ログ分析（ログデータ依存・ローカルのみ）
+
+`analysis/analyze_response_loops.py` はローカルのセッション DB（`~/.hermes/state.db`）を
+**読み取り専用**で解析し、閾値の検証やループの抽出を行います。CI では実行されません。
+
+```bash
+# セッション一覧（アシスタントメッセージ数順）
+python3 analysis/analyze_response_loops.py list-sessions --limit 10
+
+# 特定セッションの類似度解析
+python3 analysis/analyze_response_loops.py extract --session-id <session_id>
+
+# 閾値の検証（全セッションで検出数を集計）
+python3 analysis/analyze_response_loops.py validate --threshold 0.95 --min-repetitions 3
+```
+
+出力はセッション ID・件数・類似度のみで、メッセージ本文は表示しません
+（プライバシー配慮）。DB パスは `--db` または `$HERMES_HOME` で変更可能です。
+
 ## 制限
 
 - 巻き戻しは行いません（インメモリ履歴をプラグインから操作する公式手段が存在しないため）。
