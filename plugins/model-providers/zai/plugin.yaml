@@ -1,0 +1,6 @@
+name: zai
+kind: model-provider
+version: 2.0.0
+description: "Z.AI / GLM — overrides the builtin zai provider with Coding Plan URL, User-Agent header, and Hermes Agent prompt sanitization"
+author: yqYo1
+license: MIT
