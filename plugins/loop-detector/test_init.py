@@ -735,6 +735,39 @@ finally:
     mod._cfg = original_cfg
 
 # =====================================================================
+# 14. Session eviction when _MAX_TRACKED_SESSIONS is reached
+# =====================================================================
+print("\n=== 14. Session eviction when _MAX_TRACKED_SESSIONS is reached ===\n")
+
+_reset()
+mod._ctx = _FakeCtx(confirm_is_loop=True)
+
+# Create _MAX_TRACKED_SESSIONS sessions.
+for i in range(mod._MAX_TRACKED_SESSIONS):
+    mod._get_or_create_state(f"evict_session_{i}")
+
+check(
+    f"state has {mod._MAX_TRACKED_SESSIONS} sessions before eviction",
+    len(mod._state) == mod._MAX_TRACKED_SESSIONS,
+)
+
+# Create one more session — oldest should be evicted.
+mod._get_or_create_state("evict_session_overflow")
+
+check(
+    f"state has {mod._MAX_TRACKED_SESSIONS} sessions after eviction",
+    len(mod._state) == mod._MAX_TRACKED_SESSIONS,
+)
+check(
+    "first session (evict_session_0) was evicted",
+    "evict_session_0" not in mod._state,
+)
+check(
+    "new session (evict_session_overflow) exists",
+    "evict_session_overflow" in mod._state,
+)
+
+# =====================================================================
 # Summary
 # =====================================================================
 

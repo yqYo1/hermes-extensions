@@ -307,7 +307,7 @@ middleware は `pending_recovery` が設定されている場合、`request["mes
 | ---------- | ---- | ---- |
 | `tool_calls` | 正規化ツール呼び出しの履歴 | 直近 50 件（deque） |
 | `assistant_responses` | `assistant_message.content` の履歴（per-API-call） | 直近 50 件（deque） |
-| `allowlist` | LLM 確認で意図的と判定された検出パターン | 制限なし（件数は僅少） |
+|| `allowlist` | LLM 確認で意図的と判定された検出パターン | 最大 256 件（`MAX_ENTRIES`、古いものから削除） |
 | `block_count` | セッション内のブロック累計回数 | — |
 | `pending_recovery` | 注入待ちの回復通知テキスト（未注入時は None） | — |
 | `blocked_this_turn` | 現ターンでブロック済みの検出パターン（再確認抑止用） | 次ターンの `pre_llm_call` でクリア |
@@ -317,6 +317,8 @@ middleware は `pending_recovery` が設定されている場合、`request["mes
 `window_size`（既定 10）の比較に十分な履歴を確保するため maxlen は 50 とする。
 応答ループはブロックできないため、同一ターン内で同じパターンが複数の API 呼び出しで
 再検出されうる。`response_detected_this_turn` で 1 ターン 1 回の検出に抑制する。
+
+追跡するセッション数は `_MAX_TRACKED_SESSIONS = 128` で制限され、超過時は最も古いセッションから削除される。これによりメモリ使用量は O(`_MAX_TRACKED_SESSIONS × (maxlen + MAX_ENTRIES)`) に抑制される。
 
 ### 9.2 状態のリセット
 
@@ -415,8 +417,15 @@ v1.x の `rollback.py` は廃止する（§2.2）。
    `llm_request` middleware によるターン内即時注入と、`pre_llm_call` による次ターン
    通知による間接的な抑止となる。検出がターンの最後の API 呼び出しだった場合、
    ターン内即時注入は行われず次ターン通知となる
-3. **オンメモリ状態**: 検出履歴・許可リストはプロセス内メモリのみ。プロセス再起動で
-   失われ、再起動直後は検出精度が一時的に低下する
+3. **オンメモリ状態**: 全状態はプロセス内メモリのみで管理され、以下の上限によりメモリ使用量が抑制される。
+   - **セッション単位の履歴**: `tool_calls`・`assistant_responses` は `deque(maxlen=50)` で管理される。
+     `window_size`（既定 10）の比較に十分な履歴を確保できる値である。
+   - **追跡セッション数**: `_MAX_TRACKED_SESSIONS = 128` で上限され、超過時は最も古いセッションから削除される。
+   - **許可リスト**: セッションあたり `MAX_ENTRIES = 256` 件で上限され、超過時は最も古いエントリから削除される。
+   - **メモリ使用量のオーダー**: O(`_MAX_TRACKED_SESSIONS × (maxlen + MAX_ENTRIES)`) で bounded。
+   プロセス再起動では直近のインメモリウィンドウ履歴のみが失われる。検出はターン内の API 呼び出し単位で
+   動作し、LLM の会話は API 経由で独立して継続されるため、再起動が検出精度に与える影響は無視できる
+   （失われるのは現ターンの trailing similarity context のみである）。
 4. **コマンド解析の限界**: `terminal` ツールの引数（シェルコマンド文字列）は文字列として
    比較する。ヒアドキュメント・コマンド置換・環境変数展開を含む複雑なコマンドの
    意味的な等価性は判定しない

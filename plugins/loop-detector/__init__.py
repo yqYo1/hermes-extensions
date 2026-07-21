@@ -35,6 +35,9 @@ except ImportError:
 _ctx: Any = None  # Plugin context — set by register() (SPEC §9.3)
 _lock = threading.Lock()
 _state: dict[str, dict[str, Any]] = {}
+_MAX_TRACKED_SESSIONS = (
+    128  # Bound _state size to prevent unbounded memory growth (SPEC §13.3)
+)
 
 # ---------------------------------------------------------------------------
 # Config helpers (SPEC §10)
@@ -94,6 +97,9 @@ def _get_or_create_state(session_id: str) -> dict[str, Any]:
     """Return the state dict for *session_id*, creating it if absent."""
     with _lock:
         if session_id not in _state:
+            if len(_state) >= _MAX_TRACKED_SESSIONS:
+                # Evict oldest session to bound memory (SPEC §13.3)
+                _state.pop(next(iter(_state)), None)
             _state[session_id] = _make_default_state()
         return _state[session_id]
 

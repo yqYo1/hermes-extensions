@@ -162,8 +162,10 @@ class Allowlist:
     - Response loops: the fixed string ``"response"``.
     """
 
+    MAX_ENTRIES = 256  # Cap to prevent unbounded growth.
+
     def __init__(self) -> None:
-        self._patterns: set[object] = set()
+        self._patterns: dict[object, None] = {}  # dict as ordered set (Python 3.7+)
 
     def add(self, pattern: object) -> None:
         """Register a pattern as confirmed-intentional.
@@ -171,7 +173,10 @@ class Allowlist:
         Args:
             pattern: Canonical pattern key (tuple, list, or string).
         """
-        self._patterns.add(pattern)
+        if len(self._patterns) >= self.MAX_ENTRIES:
+            # Evict oldest entry to prevent unbounded growth.
+            self._patterns.pop(next(iter(self._patterns)))
+        self._patterns[pattern] = None
 
     def contains(self, pattern: object) -> bool:
         """Check if a pattern has already been allowed.
@@ -186,7 +191,7 @@ class Allowlist:
 
     def remove(self, pattern: object) -> None:
         """Remove a pattern from the allowlist."""
-        self._patterns.discard(pattern)
+        self._patterns.pop(pattern, None)
 
     def clear(self) -> None:
         """Clear all allowed patterns."""

@@ -254,6 +254,31 @@ check(
 )
 
 # ---------------------------------------------------------------------------
+# Tests: Allowlist size cap
+# ---------------------------------------------------------------------------
+
+print("\n\n=== Allowlist size cap ===\n")
+
+wl = Allowlist()
+# Add MAX_ENTRIES + 1 entries.
+entries = [f"entry_{i}" for i in range(wl.MAX_ENTRIES + 1)]
+for e in entries:
+    wl.add(e)
+
+check(
+    f"allowlist has {wl.MAX_ENTRIES} entries after overflow",
+    len(wl.snapshot()) == wl.MAX_ENTRIES,
+)
+check(
+    "first entry (entry_0) was evicted",
+    "entry_0" not in wl.snapshot(),
+)
+check(
+    f"last entry (entry_{wl.MAX_ENTRIES}) was added",
+    f"entry_{wl.MAX_ENTRIES}" in wl.snapshot(),
+)
+
+# ---------------------------------------------------------------------------
 # Summary
 # ---------------------------------------------------------------------------
 
