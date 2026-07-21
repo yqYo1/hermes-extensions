@@ -15,7 +15,7 @@ hermes-extensions/
 │   ├── delegate-task-full-inheritance/   # Blocks toolset limitation in delegate_task
 │   └── model-providers/              # Model provider plugins (symlinked into ~/.hermes/plugins/model-providers/)
 │       ├── qwen-token-plan/          # Qwen Cloud Token Plan (dedicated subscription tier)
-│       └── zai-custom/               # Custom Z.AI / GLM provider with reasoning_effort mapping
+│       └── zai/                       # Z.AI / GLM Coding Plan override (overrides builtin zai provider)
 ├── skills/                           # Hermes skills
 │   └── git-workflow/                 # Git workflow documentation
 ├── LICENSE                           # MIT License
@@ -93,22 +93,24 @@ hermes config set model.api_mode anthropic_messages
 hermes config set model.default qwen3.7-max
 ```
 
-### zai-custom (Model Provider)
+### zai (Model Provider)
 
-Custom Z.AI / GLM model provider with client-side fixes.
+Z.AI / GLM model provider — overrides the builtin `zai` provider with Coding Plan tier.
 
 **Purpose:**
 
-- Overrides the builtin `zai` provider with reasoning_effort mapping, header override, and prompt sanitization
-- Maps Hermes reasoning_effort values to GLM-5.2 equivalents
-- Prevents 429/1305 provider-side rejection of certain prompt phrases
+- Overrides the builtin `zai` provider (last-writer-wins discovery) with:
+  - **Coding Plan base URL** (`https://api.z.ai/api/coding/paas/v4`)
+  - **OpenAI SDK User-Agent fingerprinting** (neutral `User-Agent` header)
+  - **Prompt sanitization** — replaces "Hermes Agent" with "Assistant" to prevent 429/1305
+- Inherits the builtin's reasoning logic: GLM-4.5+ thinking toggle + GLM-5.2 reasoning_effort mapping
 
 **Installation:**
 
 ```bash
 mkdir -p ~/.hermes/plugins/model-providers/
-ln -s ~/ghq/github.com/yqYo1/hermes-extensions/plugins/model-providers/zai-custom ~/.hermes/plugins/model-providers/
-hermes plugins enable zai-custom
+ln -s ~/ghq/github.com/yqYo1/hermes-extensions/plugins/model-providers/zai ~/.hermes/plugins/model-providers/
+hermes plugins enable zai
 ```
 
 ## Installation
