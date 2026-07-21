@@ -241,6 +241,39 @@ class QwenTokenPlanProfile(ProviderProfile):
                 top_level["reasoning_effort"] = mapped
 
 
+# -- Context length seeding ---------------------------------------------------
+#
+# Hermes core's model_metadata.py has no entries for Token Plan models, so
+# they fall through to the "qwen" catch-all (131072).  Seed the persistent
+# context-length cache at plugin load time so get_model_context_length()
+# resolves the correct 1M window before reaching the hardcoded fallback.
+# Source: docs.qwencloud.com — all Token Plan models ship 1M context.
+
+_CONTEXT_LENGTHS: dict[str, int] = {
+    "qwen3.8-max-preview": 1_048_576,
+    "qwen3.7-max": 1_048_576,
+    "qwen3.7-plus": 1_048_576,
+    "qwen3.6-flash": 1_048_576,
+    "glm-5.2": 1_048_576,
+    "deepseek-v4-pro": 1_048_576,
+}
+
+
+def _seed_context_lengths(base_url: str) -> None:
+    """Write per-model context lengths into the persistent cache.
+
+    Called once at plugin registration.  ``save_context_length`` is
+    idempotent (skips the write when the cached value already matches),
+    so repeated loads are cheap.
+    """
+    try:
+        from agent.model_metadata import save_context_length
+    except ImportError:
+        return
+    for model, length in _CONTEXT_LENGTHS.items():
+        save_context_length(model, base_url, length)
+
+
 # -- Registration -------------------------------------------------------------
 
 
@@ -265,3 +298,4 @@ qwen_token_plan = QwenTokenPlanProfile(
 )
 
 register_provider(qwen_token_plan)
+_seed_context_lengths(qwen_token_plan.base_url)
