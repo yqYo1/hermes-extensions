@@ -1,6 +1,6 @@
 # Qwen Cloud Token Plan Provider
 
-A Hermes Agent model-provider plugin for [Qwen Cloud Token Plan](https://www.qwencloud.com/pricing/token-plan) — a dedicated subscription tier (Personal / Team Edition) with its own endpoint and API keys.
+A Hermes Agent model-provider plugin for [Qwen Cloud Token Plan](https://www.qwencloud.com/pricing/token-plan) — a dedicated subscription tier (Personal Edition) with its own endpoint and API keys.
 
 ## Why a separate provider?
 
