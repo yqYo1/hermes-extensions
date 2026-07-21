@@ -142,7 +142,7 @@ These are conservative references. Override per level with the `QWEN_TOKEN_PLAN_
 
 ## Aliases
 
-The provider resolves under any of: `qwen-token-plan`, `qwen-token`, `token-plan`.
+The provider resolves under any of: `qwen-token-plan`, `qwen-token`.
 
 ## References
 
