@@ -118,7 +118,7 @@ def ask_llm_confirmation(
             timeout=float(timeout),
         )
 
-        if result.content_type == "json" and result.parsed is not None:
+        if result.content_type == "json" and isinstance(result.parsed, dict):
             is_loop = bool(result.parsed.get("is_loop", True))
             reason = str(result.parsed.get("reason", "no reason provided"))
             print(

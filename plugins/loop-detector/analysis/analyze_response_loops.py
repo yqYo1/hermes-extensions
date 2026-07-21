@@ -50,19 +50,21 @@ from typing import Any
 # ---------------------------------------------------------------------------
 
 
-def normalize_text(text: str, max_chars: int = 4000) -> str:
+def normalize_text(text: str) -> str:
     """Normalize text for response-loop similarity comparison.
 
+    Mirrors detector.py's normalize_text exactly (no char cap) so analysis
+    results are comparable to runtime detection. Long texts are slower to
+    compare but this matches production behavior.
+
     Performs (in order):
-      1. Cap at max_chars (safeguard for very long responses)
-      2. Lowercasing
-      3. Whitespace collapse (any run of whitespace -> single space)
-      4. Digit sequences -> ``{NUM}``
-      5. Code-fence language specifier removal (`````python`` -> `````)
+      1. Lowercasing
+      2. Whitespace collapse (any run of whitespace -> single space)
+      3. Digit sequences -> ``{NUM}``
+      4. Code-fence language specifier removal (`````python`` -> `````)
     """
     if not text:
         return ""
-    text = text[:max_chars]
     text = text.lower()
     text = re.sub(r"\s+", " ", text)
     text = re.sub(r"\b\d+\b", "{NUM}", text)
