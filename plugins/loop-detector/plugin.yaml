@@ -5,6 +5,6 @@ author: yqYo1
 license: MIT
 hooks:
   - pre_tool_call
-  - post_llm_call
+  - post_api_request
   - pre_llm_call
   - on_session_reset

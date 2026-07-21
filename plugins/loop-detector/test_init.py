@@ -45,9 +45,10 @@ mod = _load_plugin()
 
 # Alias frequently-used names.
 _on_pre_tool_call = mod._on_pre_tool_call
-_on_post_llm_call = mod._on_post_llm_call
+_on_post_api_request = mod._on_post_api_request
 _on_pre_llm_call = mod._on_pre_llm_call
 _on_session_reset = mod._on_session_reset
+_llm_request_middleware = mod._llm_request_middleware
 
 # ---------------------------------------------------------------------------
 # Test framework
@@ -80,6 +81,13 @@ class _FakeStructuredResult:
         self.content_type = content_type
 
 
+class _FakeAssistantMessage:
+    """Stub for NormalizedResponse with a .content attribute."""
+
+    def __init__(self, content: str):
+        self.content = content
+
+
 class _FakeLlm:
     """Stub for ctx.llm with configurable structured result."""
 
@@ -105,9 +113,13 @@ class _FakeCtx:
     def __init__(self, confirm_is_loop: bool = True):
         self.llm = _FakeLlm(confirm_is_loop=confirm_is_loop)
         self.hooks: dict[str, object] = {}
+        self.middlewares: dict[str, object] = {}
 
     def register_hook(self, name: str, handler: object) -> None:
         self.hooks[name] = handler
+
+    def register_middleware(self, name: str, handler: object) -> None:
+        self.middlewares[name] = handler
 
 
 # ---------------------------------------------------------------------------
@@ -159,6 +171,23 @@ def _reset():
     """Reset module state between test scenarios."""
     mod._state.clear()
     mod._ctx = None
+
+
+def _setup_response_loop_detection(
+    session_id: str = "s_rl",
+    text: str = "Let me analyze the code.",
+    count: int = 4,
+) -> None:
+    """Pre-populate similar responses to trigger response-loop detection.
+
+    With ``min_repetitions=3``, sending ``count`` identical responses will
+    trigger detection on the last one (trailing run of count-1 >= 3).
+    """
+    for _ in range(count):
+        _on_post_api_request(
+            session_id=session_id,
+            assistant_message=_FakeAssistantMessage(text),
+        )
 
 
 # =====================================================================
@@ -379,7 +408,7 @@ except Exception:
     check("reset non-existent session: no error", False)
 
 # =====================================================================
-# 6. Edge: disabled plugin skips all
+# 6. Edge: disabled config skips detection
 # =====================================================================
 print("\n=== 6. Edge: disabled config skips detection ===\n")
 
@@ -401,11 +430,17 @@ try:
     r = _on_pre_llm_call(session_id="s6")
     check("disabled: pre_llm_call returns None", r is None)
 
-    r = _on_post_llm_call(
+    r = _on_post_api_request(
         session_id="s6",
-        assistant_response="Let me analyze the code. Let me analyze the code.",
+        assistant_message=_FakeAssistantMessage("Let me analyze the code."),
     )
-    check("disabled: post_llm_call returns None", r is None)
+    check("disabled: post_api_request returns None", r is None)
+
+    r = _llm_request_middleware(
+        request={"messages": [{"role": "user", "content": "hi"}]},
+        session_id="s6",
+    )
+    check("disabled: llm_request middleware returns None", r is None)
 
     check("disabled: no state created", "s6" not in mod._state)
 finally:
@@ -431,8 +466,17 @@ try:
     r = _on_pre_llm_call(session_id="s7")
     check("exception in pre_llm_call → returns None", r is None)
 
-    r = _on_post_llm_call(session_id="s7", assistant_response="hello world")
-    check("exception in post_llm_call → returns None", r is None)
+    r = _on_post_api_request(
+        session_id="s7",
+        assistant_message=_FakeAssistantMessage("hello world"),
+    )
+    check("exception in post_api_request → returns None", r is None)
+
+    r = _llm_request_middleware(
+        request={"messages": [{"role": "user", "content": "hi"}]},
+        session_id="s7",
+    )
+    check("exception in llm_request middleware → returns None", r is None)
 
     # on_session_reset on a non-dict state won't trigger exception since
     # we pop by key (key exists so pop succeeds).
@@ -453,12 +497,242 @@ ctx = _FakeCtx(confirm_is_loop=True)
 mod.register(ctx)
 
 check("pre_tool_call hook registered", "pre_tool_call" in ctx.hooks)
-check("post_llm_call hook registered", "post_llm_call" in ctx.hooks)
+check("post_api_request hook registered", "post_api_request" in ctx.hooks)
 check("pre_llm_call hook registered", "pre_llm_call" in ctx.hooks)
 check("on_session_reset hook registered", "on_session_reset" in ctx.hooks)
 
+check("llm_request middleware registered", "llm_request" in ctx.middlewares)
+
 # Verify _ctx was set.
 check("_ctx was stored", mod._ctx is ctx)
+
+# =====================================================================
+# 9. Response-loop detection via post_api_request
+# =====================================================================
+print("\n=== 9. Response-loop detection via post_api_request ===\n")
+
+_reset()
+mod._ctx = _FakeCtx(confirm_is_loop=True)
+
+state = mod._get_or_create_state("s9")
+
+# Call with None assistant_message → should be skipped (guard).
+r = _on_post_api_request(session_id="s9", assistant_message=None)
+check("post_api_request with None msg → None", r is None)
+
+# Call with non-str content → should be skipped.
+msg = _FakeAssistantMessage(content=123)  # type: ignore[arg-type]
+r = _on_post_api_request(session_id="s9", assistant_message=msg)
+check("post_api_request with non-str content → None", r is None)
+
+# Call with empty string (tool-call-only) → should be skipped.
+r = _on_post_api_request(
+    session_id="s9",
+    assistant_message=_FakeAssistantMessage(""),
+)
+check("post_api_request with empty content → None", r is None)
+
+# Send 4 identical responses to trigger detection (trailing run of 3).
+for i in range(4):
+    r = _on_post_api_request(
+        session_id="s9",
+        assistant_message=_FakeAssistantMessage("Let me analyze the code."),
+    )
+    check(f"identical response {i + 1} → None (no block on response loop)", r is None)
+
+# After 4 identical responses, trailing run of pairs = 3 >= min_repetitions=3 → detection.
+check(
+    "pending_recovery set after response loop detection",
+    state["pending_recovery"] is not None,
+)
+check(
+    "response_detected_this_turn is True",
+    state["response_detected_this_turn"] is True,
+)
+check(
+    "responses has 4 entries",
+    len(state["assistant_responses"]) == 4,
+)
+
+# Within same turn, another similar response should NOT re-detect.
+pre_recovery = state["pending_recovery"]
+r = _on_post_api_request(
+    session_id="s9",
+    assistant_message=_FakeAssistantMessage("Let me analyze the code again."),
+)
+check("same-turn re-detection guarded → None", r is None)
+check(
+    "pending_recovery unchanged after re-detection guard",
+    state["pending_recovery"] is pre_recovery,
+)
+check(
+    "response_detected_this_turn still True",
+    state["response_detected_this_turn"] is True,
+)
+
+# =====================================================================
+# 10. llm_request middleware injection
+# =====================================================================
+print("\n=== 10. llm_request middleware injection ===\n")
+
+_reset()
+mod._ctx = _FakeCtx(confirm_is_loop=True)
+
+# Trigger response-loop detection.
+_setup_response_loop_detection("s10")
+
+state = mod._get_or_create_state("s10")
+check("pending_recovery set", state["pending_recovery"] is not None)
+
+# Simulate llm_request middleware with a request dict.
+original_request: dict[str, object] = {
+    "messages": [{"role": "user", "content": "What's next?"}],
+    "model": "gpt-4",
+}
+result = _llm_request_middleware(request=original_request, session_id="s10")
+check("llm middleware returns dict", isinstance(result, dict))
+if isinstance(result, dict):
+    check("llm result has request key", "request" in result)
+    modified = result["request"]
+    check("modified is not original (deep copy)", modified is not original_request)
+    check(
+        "messages has 2 entries (original + injected)",
+        len(modified["messages"]) == 2,
+    )
+    check(
+        "injected message has user role",
+        modified["messages"][1]["role"] == "user",
+    )
+    check(
+        "injected message has non-empty content",
+        bool(modified["messages"][1].get("content", "")),
+    )
+
+# pending_recovery should be None (popped by middleware).
+check(
+    "pending_recovery cleared after middleware injection",
+    state["pending_recovery"] is None,
+)
+
+# Second middleware call → None (once-only).
+result2 = _llm_request_middleware(request=original_request, session_id="s10")
+check("second middleware call returns None (once-only)", result2 is None)
+
+# Verify original request object was NOT mutated.
+check(
+    "original request was not mutated",
+    len(original_request["messages"]) == 1,  # type: ignore[arg-type]
+)
+
+# Middleware with no session_id → None.
+result3 = _llm_request_middleware(request=original_request, session_id="")
+check("middleware with empty session_id → None", result3 is None)
+
+# Middleware with None request → None.
+result4 = _llm_request_middleware(request=None, session_id="s10")
+check("middleware with None request → None", result4 is None)
+
+# Middleware with request missing messages → None.
+result5 = _llm_request_middleware(
+    request={"model": "gpt-4"},
+    session_id="s10",  # type: ignore[typeddict-item]
+)
+check("middleware with no messages key → None", result5 is None)
+
+# =====================================================================
+# 11. pre_llm_call fallback for response-loop recovery
+# =====================================================================
+print("\n=== 11. pre_llm_call fallback for response-loop recovery ===\n")
+
+_reset()
+mod._ctx = _FakeCtx(confirm_is_loop=True)
+
+# Trigger response-loop detection WITHOUT calling llm_request middleware.
+_setup_response_loop_detection("s11")
+
+state = mod._get_or_create_state("s11")
+check("pending_recovery set (pre fallback)", state["pending_recovery"] is not None)
+check(
+    "response_detected_this_turn True",
+    state["response_detected_this_turn"] is True,
+)
+
+# pre_llm_call should deliver the recovery (fallback for last-API-call-of-turn).
+r = _on_pre_llm_call(session_id="s11")
+check("pre_llm_call returns context dict (fallback)", isinstance(r, dict))
+if isinstance(r, dict):
+    check("context key present", "context" in r)
+    check("context message is non-empty", bool(r.get("context", "")))
+
+check(
+    "pending_recovery cleared after pre_llm_call delivery",
+    state["pending_recovery"] is None,
+)
+check(
+    "response_detected_this_turn cleared by pre_llm_call",
+    state["response_detected_this_turn"] is False,
+)
+check(
+    "blocked_this_turn cleared by pre_llm_call",
+    len(state["blocked_this_turn"]) == 0,
+)
+
+# Second pre_llm_call → None (nothing left).
+r2 = _on_pre_llm_call(session_id="s11")
+check("second pre_llm_call returns None (no more recovery)", r2 is None)
+
+# =====================================================================
+# 12. Response-loop with intentional verdict (allowlisted)
+# =====================================================================
+print("\n=== 12. Response-loop with intentional verdict (allowlisted) ===\n")
+
+_reset()
+mod._ctx = _FakeCtx(confirm_is_loop=False)
+
+_setup_response_loop_detection("s12")
+
+state = mod._get_or_create_state("s12")
+# With confirm_is_loop=False, the confirmation returns False (intentional).
+# So pending_recovery should NOT be set.
+check(
+    "pending_recovery NOT set (intentional verdict)",
+    state["pending_recovery"] is None,
+)
+check(
+    "response_detected_this_turn NOT set",
+    state["response_detected_this_turn"] is False,
+)
+
+# Allowlist should contain the response pattern.
+check(
+    "allowlist contains response pattern",
+    state["allowlist"].contains("response"),
+)
+
+# =====================================================================
+# 13. post_api_request with disabled response_loop
+# =====================================================================
+print("\n=== 13. post_api_request with disabled response_loop ===\n")
+
+_reset()
+mod._ctx = _FakeCtx(confirm_is_loop=True)
+
+# We need to patch _cfg to return a config with response_loop disabled.
+original_cfg = mod._cfg
+try:
+    mod._cfg = lambda: {
+        "enabled": True,
+        "response_loop": {"enabled": False},
+        "response": {},
+    }
+
+    r = _on_post_api_request(
+        session_id="s13",
+        assistant_message=_FakeAssistantMessage("test"),
+    )
+    check("response_loop disabled → None", r is None)
+finally:
+    mod._cfg = original_cfg
 
 # =====================================================================
 # Summary

@@ -5,6 +5,7 @@ SPEC v2.0.0: hook wiring + session state + block/notify flow.
 
 from __future__ import annotations
 
+import copy
 import threading
 from collections import deque
 from typing import Any
@@ -59,6 +60,7 @@ def _tool_cfg() -> dict[str, Any]:
 
 
 def _response_cfg() -> dict[str, Any]:
+    """Return ``response_loop`` config section (detection thresholds)."""
     return _cfg().get("response_loop", {})
 
 
@@ -66,7 +68,8 @@ def _confirm_cfg() -> dict[str, Any]:
     return _cfg().get("confirmation", {})
 
 
-def _response_cfg() -> dict[str, Any]:
+def _resp_cfg() -> dict[str, Any]:
+    """Return ``response`` config section (block limits, recovery notice)."""
     return _cfg().get("response", {})
 
 
@@ -78,11 +81,12 @@ def _response_cfg() -> dict[str, Any]:
 def _make_default_state() -> dict[str, Any]:
     return {
         "tool_calls": deque(maxlen=50),
-        "assistant_responses": deque(maxlen=20),
+        "assistant_responses": deque(maxlen=50),
         "allowlist": Allowlist(),
         "block_count": 0,
         "pending_recovery": None,
         "blocked_this_turn": set(),
+        "response_detected_this_turn": False,
     }
 
 
@@ -105,6 +109,13 @@ _DEFAULT_RECOVERY_NOTICE = (
     "すでに試行済みの内容は省略し、次のステップに進んでください。"
 )
 
+_DEFAULT_RESPONSE_RECOVERY_NOTICE = (
+    "[システム通知] 応答ループが検出されました。\n"
+    "検出パターン: {summary}\n\n"
+    "同じ応答を繰り返さず、別のアプローチを検討してください。\n"
+    "すでに試行済みの内容は省略し、次のステップに進んでください。"
+)
+
 
 def _build_block_message(
     detection: Detection,
@@ -121,20 +132,22 @@ def _build_block_message(
 
 def _build_recovery_notice(detection: Detection) -> str:
     """Build recovery-notice text (SPEC §8.3), overridable by config."""
-    override = _response_cfg().get("recovery_notice", "")
+    override = _resp_cfg().get("recovery_notice", "")
     if override:
         return override
     return _DEFAULT_RECOVERY_NOTICE.format(summary=detection.detail)
 
 
-def _build_response_recovery_notice() -> str:
-    """Build recovery notice for a response-loop detection (SPEC §8.3)."""
-    override = _response_cfg().get("recovery_notice", "")
+def _build_response_recovery_notice(count: int = 0) -> str:
+    """Build recovery notice for a response-loop detection (SPEC §8.2)."""
+    override = _resp_cfg().get("recovery_notice", "")
     if override:
         return override
-    return _DEFAULT_RECOVERY_NOTICE.format(
-        summary="response loop (similar responses repeated)"
-    )
+    if count:
+        summary = f"response loop ({count} similar responses repeated)"
+    else:
+        summary = "response loop (similar responses repeated)"
+    return _DEFAULT_RESPONSE_RECOVERY_NOTICE.format(summary=summary)
 
 
 # ---------------------------------------------------------------------------
@@ -183,7 +196,7 @@ def _on_pre_tool_call(
 
         # ── Detection occurred ──────────────────────────────────────────
         loop_key = make_allowlist_key(detection.kind, detection)
-        max_blocks = _response_cfg().get("max_blocks_per_session", 5)
+        max_blocks = _resp_cfg().get("max_blocks_per_session", 5)
 
         # Allowlisted — skip (SPEC §6.4).
         if state["allowlist"].contains(loop_key):
@@ -245,18 +258,25 @@ def _on_pre_tool_call(
 
 
 # ---------------------------------------------------------------------------
-# Hook: post_llm_call — response-loop detection (SPEC §5)
+# Hook: post_api_request — response-loop detection (SPEC §5, per-API-call)
 # ---------------------------------------------------------------------------
 
 
-def _on_post_llm_call(
+def _on_post_api_request(
     session_id: str = "",
-    assistant_response: str | None = None,
+    assistant_message: Any = None,
+    assistant_content_chars: int = 0,
     **kwargs: Any,
 ) -> None:
-    """Handle ``post_llm_call`` — record response and check for response loops.
+    """Handle ``post_api_request`` — per-API-call response-loop detection.
 
-    Never blocks; sets ``pending_recovery`` for next turn on detection.
+    Extracts ``assistant_message.content`` (may be None or non-str),
+    records it, and checks for response-loop.  On detection (not already
+    detected this turn, not allowlisted), calls LLM confirmation and sets
+    ``pending_recovery``.
+
+    Never blocks (SPEC §5.4); recovery is injected via ``llm_request``
+    middleware (§8.2) or next-turn ``pre_llm_call`` (§8.3).
     """
     try:
         if not _enabled() or not session_id:
@@ -268,12 +288,22 @@ def _on_post_llm_call(
         if not tcfg.get("enabled", True):
             return None
 
-        # Guard empty response (SPEC §5: won't fire for empty, but guard).
-        if not assistant_response:
+        # Extract content — guard None / non-str (SPEC §5.1).
+        content: str | None = None
+        if assistant_message is not None and hasattr(assistant_message, "content"):
+            content = assistant_message.content
+        if not isinstance(content, str):
+            return None
+        if not content:
+            # Empty string → tool-call-only response (SPEC §5.1).
             return None
 
-        # Record.
-        state["assistant_responses"].append(assistant_response)
+        # Record (SPEC §5.1).
+        state["assistant_responses"].append(content)
+
+        # Already detected this turn — skip re-detection (SPEC §9.1).
+        if state["response_detected_this_turn"]:
+            return None
 
         # Detect.
         result = detect_response_loop(
@@ -306,8 +336,11 @@ def _on_post_llm_call(
                 state["allowlist"].add(response_key)
                 return None
 
-        # Loop confirmed — set recovery notice (SPEC §8.3).  Never block.
-        state["pending_recovery"] = _build_response_recovery_notice()
+        # ── Loop confirmed — set pending_recovery ───────────────────────
+        # Use the configured min_repetitions as the count.
+        count = tcfg.get("min_repetitions", 3)
+        state["pending_recovery"] = _build_response_recovery_notice(count=count)
+        state["response_detected_this_turn"] = True
         return None
 
     except Exception:
@@ -315,7 +348,49 @@ def _on_post_llm_call(
 
 
 # ---------------------------------------------------------------------------
-# Hook: pre_llm_call — recovery-notice injection (SPEC §8)
+# Middleware: llm_request — mid-turn injection (SPEC §8.1, §8.2)
+# ---------------------------------------------------------------------------
+
+
+def _llm_request_middleware(
+    request: dict[str, Any] | None = None,
+    session_id: str = "",
+    **kwargs: Any,
+) -> dict[str, Any] | None:
+    """Handle ``llm_request`` middleware — inject pending recovery.
+
+    If ``pending_recovery`` is set in the session state, pops it and
+    returns a deep copy of *request* with a user message appended to
+    ``request["messages"]``.  Returns ``None`` otherwise (no-op).
+
+    Never mutates the original *request* object (SPEC §11).
+    """
+    try:
+        if not _enabled() or not session_id:
+            return None
+
+        state = _get_or_create_state(session_id)
+        recovery = state.get("pending_recovery")
+        if recovery is None:
+            return None
+
+        # Pop so it's delivered exactly once (SPEC §8.1).
+        state["pending_recovery"] = None
+
+        if request is None or "messages" not in request:
+            return None
+
+        # Deep copy — never mutate the original (SPEC §11).
+        modified = copy.deepcopy(request)
+        modified["messages"].append({"role": "user", "content": recovery})
+        return {"request": modified}
+
+    except Exception:
+        return None
+
+
+# ---------------------------------------------------------------------------
+# Hook: pre_llm_call — recovery-notice injection (SPEC §8.3)
 # ---------------------------------------------------------------------------
 
 
@@ -325,7 +400,10 @@ def _on_pre_llm_call(
 ) -> dict[str, str] | None:
     """Handle ``pre_llm_call``.
 
-    Clears ``blocked_this_turn`` and delivers ``pending_recovery`` once.
+    Clears ``blocked_this_turn`` and ``response_detected_this_turn``.
+    Delivers ``pending_recovery`` once if it was not already injected
+    via ``llm_request`` middleware (fallback for last-API-call-of-turn
+    detection, SPEC §8.3).
     """
     try:
         if not _enabled() or not session_id:
@@ -333,10 +411,13 @@ def _on_pre_llm_call(
 
         state = _get_or_create_state(session_id)
 
-        # Clear per-turn block set (SPEC §9.1: cleared at start of next turn).
+        # Clear per-turn tracking (SPEC §9.1: cleared at start of next turn).
         state["blocked_this_turn"].clear()
+        state["response_detected_this_turn"] = False
 
-        # Deliver pending recovery exactly once.
+        # Deliver pending recovery exactly once (fallback for cases where
+        # llm_request middleware didn't inject it — e.g. detection on the
+        # last API call of the turn).
         recovery = state["pending_recovery"]
         if recovery is not None:
             state["pending_recovery"] = None
@@ -387,8 +468,10 @@ def register(ctx: Any) -> None:
         return
 
     ctx.register_hook("pre_tool_call", _on_pre_tool_call)
-    ctx.register_hook("post_llm_call", _on_post_llm_call)
+    ctx.register_hook("post_api_request", _on_post_api_request)
     ctx.register_hook("pre_llm_call", _on_pre_llm_call)
     ctx.register_hook("on_session_reset", _on_session_reset)
+
+    ctx.register_middleware("llm_request", _llm_request_middleware)
 
     print("[loop-detector] registered (v2.0.0).")
