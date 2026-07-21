@@ -63,6 +63,7 @@ Qwen Cloud Token Plan — dedicated subscription tier (Personal/Team Edition).
 - Provides access to the Qwen Cloud Token Plan, a subscription-based tier separate from pay-as-you-go DashScope and the Coding Plan
 - Uses dedicated API keys (prefixed `sk-sp-`) and a dedicated endpoint (`token-plan.ap-southeast-1.maas.aliyuncs.com`)
 - Supports both OpenAI-compatible (default) and Anthropic-compatible protocols via `base_url` selection
+- Maps Hermes reasoning effort to per-family thinking parameters (Qwen, GLM, DeepSeek)
 
 **Installation:**
 
@@ -71,6 +72,8 @@ mkdir -p ~/.hermes/plugins/model-providers/
 ln -s ~/ghq/github.com/yqYo1/hermes-extensions/plugins/model-providers/qwen-token-plan ~/.hermes/plugins/model-providers/
 hermes plugins enable qwen-token-plan-provider
 ```
+
+For full documentation — supported models, environment variables, configuration examples, and per-family thinking/effort mapping — see the [plugin README](plugins/model-providers/qwen-token-plan/README.md).
 
 **Configuration (OpenAI-compatible, default):**
 
