@@ -248,14 +248,17 @@ class QwenTokenPlanProfile(ProviderProfile):
 # context-length cache at plugin load time so get_model_context_length()
 # resolves the correct 1M window before reaching the hardcoded fallback.
 # Source: docs.qwencloud.com — all Token Plan models ship 1M context.
+# Alibaba Cloud Model Studio pricing docs explicitly define:
+# "1M equals 1,000,000 tokens" (SI decimal, not 2^20).
+# https://help.aliyun.com/en/model-studio/model-pricing
 
 _CONTEXT_LENGTHS: dict[str, int] = {
-    "qwen3.8-max-preview": 1_048_576,
-    "qwen3.7-max": 1_048_576,
-    "qwen3.7-plus": 1_048_576,
-    "qwen3.6-flash": 1_048_576,
-    "glm-5.2": 1_048_576,
-    "deepseek-v4-pro": 1_048_576,
+    "qwen3.8-max-preview": 1_000_000,
+    "qwen3.7-max": 1_000_000,
+    "qwen3.7-plus": 1_000_000,
+    "qwen3.6-flash": 1_000_000,
+    "glm-5.2": 1_000_000,
+    "deepseek-v4-pro": 1_000_000,
 }
 
 
