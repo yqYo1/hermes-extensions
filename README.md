@@ -14,6 +14,7 @@ hermes-extensions/
 │   ├── browser-localhost-block/      # Blocks browser access to localhost
 │   ├── delegate-task-full-inheritance/   # Blocks toolset limitation in delegate_task
 │   └── model-providers/              # Model provider plugins (symlinked into ~/.hermes/plugins/model-providers/)
+│       ├── qwen-token-plan/          # Qwen Cloud Token Plan (dedicated subscription tier)
 │       └── zai-custom/               # Custom Z.AI / GLM provider with reasoning_effort mapping
 ├── skills/                           # Hermes skills
 │   └── git-workflow/                 # Git workflow documentation
@@ -52,6 +53,42 @@ Blocks `delegate_task` calls that specify a limited `toolsets` parameter.
 
 - Blocks when `toolsets` parameter is present in `delegate_task`
 - Error message is sent to the LLM as well, prompting a retry
+
+### qwen-token-plan (Model Provider)
+
+Qwen Cloud Token Plan — dedicated subscription tier (Personal/Team Edition).
+
+**Purpose:**
+
+- Provides access to the Qwen Cloud Token Plan, a subscription-based tier separate from pay-as-you-go DashScope and the Coding Plan
+- Uses dedicated API keys (prefixed `sk-sp-`) and a dedicated endpoint (`token-plan.ap-southeast-1.maas.aliyuncs.com`)
+- Supports both OpenAI-compatible (default) and Anthropic-compatible protocols via `base_url` selection
+
+**Installation:**
+
+```bash
+mkdir -p ~/.hermes/plugins/model-providers/
+ln -s ~/ghq/github.com/yqYo1/hermes-extensions/plugins/model-providers/qwen-token-plan ~/.hermes/plugins/model-providers/
+hermes plugins enable qwen-token-plan-provider
+```
+
+**Configuration (OpenAI-compatible, default):**
+
+```bash
+hermes config set model.provider qwen-token-plan
+hermes config set model.default qwen3.7-max
+# Set API key in ~/.hermes/.env:
+#   QWEN_TOKEN_PLAN_API_KEY=sk-sp-xxxxxxxx
+```
+
+**Configuration (Anthropic-compatible):**
+
+```bash
+hermes config set model.provider qwen-token-plan
+hermes config set model.base_url https://token-plan.ap-southeast-1.maas.aliyuncs.com/apps/anthropic
+hermes config set model.api_mode anthropic_messages
+hermes config set model.default qwen3.7-max
+```
 
 ### zai-custom (Model Provider)
 
