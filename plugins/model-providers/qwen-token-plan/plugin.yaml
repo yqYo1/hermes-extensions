@@ -1,0 +1,5 @@
+name: qwen-token-plan-provider
+kind: model-provider
+version: 1.0.0
+description: "Qwen Cloud Token Plan — dedicated subscription tier"
+author: yqYo1
