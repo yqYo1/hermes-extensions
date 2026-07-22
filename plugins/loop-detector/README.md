@@ -16,10 +16,10 @@ hermes plugins enable loop-detector
 
 | フック / middleware | タイミング | 動作 |
 | ------ | ---------- | ---- |
-| `pre_tool_call` | ツール呼び出し前 | ツールループを検知し `{"action": "block"}` でブロック |
-| `post_api_request` | LLM API 呼び出しごと | `assistant_message.content` を記録し応答ループを検知（ターン内の中間出力を含む・割り込み時も発火） |
-| `llm_request`（middleware） | LLM API 呼び出し直前 | 応答ループ検出時、ターン内の次の API リクエストに回復通知を即時注入 |
-| `pre_llm_call` | ターン開始時 | ターン内で注入されなかった回復通知を次ターンに注入（補助） |
+| `pre_tool_call` | ツール呼び出し前 | ツールループを検知し `{"action": "block"}` でブロック。ブロック時に `pending_recovery` を設定。`max_blocks_per_session` 到達後はブロックせず回復通知のみ設定 |
+| `post_api_request` | LLM API 呼び出しごと | `assistant_message.content` を記録し応答ループを検知（ターン内の中間出力を含む・割り込み時も発火）。検出時に `pending_recovery` を設定 |
+| `llm_request`（middleware） | LLM API 呼び出し直前 | `pending_recovery` が設定されていれば、次の API リクエストの `messages` 末尾に回復通知を即時注入（ツールループ・応答ループ共通・deep copy・一度限り） |
+| `pre_llm_call` | ターン開始時 | ターン単位の検出履歴（ツール呼び出し・応答）とターン内フラグをクリア。`pending_recovery` が残っていれば `context` として注入（middleware で注入されなかった場合の補助） |
 | `on_session_reset` | セッションリセット | セッション状態を削除 |
 
 ## ループ検知アルゴリズム
@@ -47,8 +47,15 @@ hermes plugins enable loop-detector
 
 ## 回復通知
 
-ループがブロック・検出された場合、次ターンの LLM 呼び出し時にユーザーメッセージへ
-エフェメラルな回復通知を注入します（プロンプトキャッシュ維持・永続化なし・CLI/ゲートウェイ両対応）。
+ループがブロック・検出されると `pending_recovery` に回復通知テキストが設定されます。
+注入は 2 段階で行われます。
+
+1. **同一ターン即時注入（主経路）**: `llm_request` middleware が次の LLM API 呼び出しの
+   `messages` 末尾にユーザーメッセージとして追加（deep copy・一度限り・プロンプトキャッシュ維持）
+2. **次ターン補助注入（フォールバック）**: ターン最後の API 呼び出しで検出され middleware が
+   発火しなかった場合、次ターンの `pre_llm_call` が `context` として注入
+
+ツールループ・応答ループ共通の仕組みです。永続化なし・CLI/ゲートウェイ両対応。
 
 ## 設定
 
@@ -123,6 +130,8 @@ python3 analysis/analyze_response_loops.py validate --threshold 0.95 --min-repet
 - 巻き戻しは行いません（インメモリ履歴をプラグインから操作する公式手段が存在しないため）。
   ブロックと通知による抑止に留まります
 - 応答ループはブロックできません（ブロック可能なゲートは `pre_tool_call` のみ）
-- 検出履歴・許可リストはオンメモリのため、プロセス再起動で失われます
+- 検出ウィンドウ（ツール呼び出し履歴・応答履歴）は**毎ターン**クリアされます。
+  許可リスト・ブロック回数はセッション単位で保持されますが、いずれもオンメモリのため
+  プロセス再起動で失われます
 
 詳細な設計仕様は [SPEC.md](SPEC.md) を参照してください。
