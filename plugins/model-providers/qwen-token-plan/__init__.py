@@ -282,7 +282,7 @@ def _seed_context_lengths(base_url: str) -> None:
 
 qwen_token_plan = QwenTokenPlanProfile(
     name="qwen-token-plan",
-    aliases=("qwen-token"),
+    aliases=("qwen-token",),
     display_name="Qwen Cloud (Token Plan)",
     description="Qwen Cloud Token Plan — dedicated subscription tier (Personal Edition)",
     signup_url="https://www.qwencloud.com/pricing/token-plan",
