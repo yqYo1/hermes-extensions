@@ -20,18 +20,21 @@ metadata:
 
 ### Discover Existing Local Repositories
 
-Before cloning a repository or asking the user for its local path, search the
-repositories already managed by `ghq`:
+Before cloning a repository or asking the user for its local path, obtain the
+full paths already managed by `ghq` and pipe them into a filter suited to the
+current search. The command and options after the pipe are not prescribed;
+choose them according to what must be narrowed down. For example:
 
 ```bash
 ghq list --full-path | grep -i <search-term>
 ```
 
 Run this read-only search immediately when locating a repository; no
-confirmation is required. The output contains the full repository-root paths,
-so use the matching path directly. If several repositories match, inspect the
-results and select the intended repository before acting. If nothing matches,
-then proceed to cloning or ask for missing context.
+confirmation is required. The example above is illustrative, not a requirement
+to use `grep -i`. Use the matching full repository-root path directly. If
+several repositories match, inspect the results and select the intended
+repository before acting. If nothing matches, then proceed to cloning or ask
+for missing context.
 
 ### Default Branch Protection
 
@@ -331,7 +334,7 @@ across multiple turns without committing. User had to explicitly remind:
 
 When the current directory is not a git repository (e.g., `~/.hermes/hermes-agent`), locate the active worktree:
 
-1. Find the repository root with `ghq list --full-path | grep -i <project-name>`
+1. Find the repository root by piping `ghq list --full-path` into an appropriate filter as described above
 2. Determine the worktree path: branch slashes become hyphens
    - Branch `refactor/rust-core` → `.worktree/refactor-rust-core/`
 3. Verify with `git -C <worktree-path> status`
