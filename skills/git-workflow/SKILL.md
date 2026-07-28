@@ -68,17 +68,6 @@ When working with forks on GitHub (or other remotes):
 - Each clone has its own `.git/` directory, its own remotes, and its own worktrees.
 - **Never nest a fork inside another repository's worktree.** This creates confusion about which remote to push to and which branch belongs to which repo.
 
-## Commit and Pull Request Language
-
-- Default to English for commit messages, pull-request titles, and pull-request
-  bodies, regardless of the language used in the conversation.
-- Use another language only when the user explicitly requests it, repository
-  workflow or contribution documentation specifies it, or inspected commit and
-  pull-request history clearly establishes it as the repository convention.
-  Do not infer artifact language from the conversation language alone.
-- Commit messages must follow Conventional Commits unless the repository
-  specifies a different convention.
-
 ## Pull Requests
 
 - For PRs in **your repositories**, target `your-username/<repo>` (not upstream).
@@ -307,6 +296,12 @@ git branch -D <branch-name>
 
 - **Commit and push automatically at natural work boundaries** without waiting for explicit user instruction.
 - A "work boundary" is any of: task completion, file deletion, significant change set, phase transition, or before switching contexts.
+- **Commit messages, PR titles, and PR bodies default to English regardless of
+  conversation language.** Use another language only when explicitly requested,
+  when repository workflow or contribution documentation specifies it, or when
+  inspected commit history or PR history establishes it as the repository
+  convention. Commit messages must follow Conventional Commits unless the
+  repository specifies a different convention.
 - Use descriptive commit messages. Run `nix fmt` before committing if the project uses nix formatting.
 - If push is rejected (non-fast-forward), pull with rebase first, then push again.
 - **User explicitly requires frequent commits/pushes** — do not wait for user to say "commit now". Treat commit/push as part of the workflow, not a separate action requiring permission.
