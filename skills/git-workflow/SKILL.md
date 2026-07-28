@@ -46,10 +46,8 @@ for missing context.
 ### Worktree Mode
 
 - Perform **all work exclusively** in `.worktree/<branch>/` directories.
-- A strictly read-only `delegate_task` call does not require another worktree.
-  When a delegated task may write anywhere in a Git working tree or mutate its
-  local branch, index, or commit history, create a dedicated subagent worktree
-  as described below.
+- For delegated Git writes and subagent worktree requirements, follow
+  **Subagent Worktree Lifecycle** below.
 - **Never create or check out feature branches in the root directory.**
 - **NEVER run `git checkout` inside a worktree to switch branches.** A worktree is bound to a single branch; switching branches inside it violates the worktree contract and causes confusion. If you need to work on a different branch, create a
   **new worktree** instead.
@@ -169,12 +167,10 @@ git config --local --unset user.email 2>/dev/null || true
 
 ## Subagent Worktree Lifecycle
 
-Treat all subagents as lower-trust workers for repository writes. They may run
-lower-cost models, but this isolation rule applies regardless of the actual
-model assignment. Default to a dedicated subagent worktree whenever a delegated
-task may write inside a Git working tree or mutate its local branch, index, or
-commit history. This includes source edits, generated files, staging, commits,
-rebases, cherry-picks, merges, and disposable experiments.
+Create a dedicated subagent worktree whenever a delegated task may write
+inside a Git working tree or mutate its local branch, index, or commit
+history. This includes source edits, generated files, staging, commits, rebases,
+cherry-picks, merges, and disposable experiments.
 
 A dedicated subagent worktree is optional only when the delegated task is
 strictly read-only with respect to the local repository, or when all writes are
