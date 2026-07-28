@@ -169,18 +169,19 @@ git config --local --unset user.email 2>/dev/null || true
 
 ## Subagent Worktree Lifecycle
 
-Treat subagents as lower-trust workers for repository writes because they
-may run lower-cost models. Default to a dedicated subagent worktree whenever a
-delegated task may write inside a Git working tree or change its local branch
-state. This includes source edits, generated files, staging, commits, rebases,
-cherry-picks, merges, and disposable experiments.
+Treat all subagents as lower-trust workers for repository writes. They may run
+lower-cost models, but this isolation rule applies regardless of the actual
+model assignment. Default to a dedicated subagent worktree whenever a delegated
+task may write inside a Git working tree or mutate its local branch, index, or
+commit history. This includes source edits, generated files, staging, commits,
+rebases, cherry-picks, merges, and disposable experiments.
 
 A dedicated subagent worktree is optional only when the delegated task is
 strictly read-only with respect to the local repository, or when all writes are
-outside every Git working tree and cannot mutate local branch state. Examples
-include source inspection, history or status queries, CI monitoring, and remote
-state inspection. Do not serialize independent tasks merely to avoid creating
-worktrees.
+outside every Git working tree and cannot mutate a local branch, index, or
+commit history. Examples include source inspection, history or status queries,
+CI monitoring, and remote state inspection. Do not serialize independent tasks
+merely to avoid creating worktrees.
 
 ### Creation
 
