@@ -24,14 +24,14 @@ Before cloning a repository or asking the user for its local path, search the
 repositories already managed by `ghq`:
 
 ```bash
-ghq list | grep -i <search-term>
+ghq list --full-path | grep -i <search-term>
 ```
 
 Run this read-only search immediately when locating a repository; no
-confirmation is required. A match is relative to `ghq root`, so use
-`$(ghq root)/<match>` as the repository root. If several repositories match,
-inspect the results and select the intended repository before acting. If
-nothing matches, then proceed to cloning or ask for missing context.
+confirmation is required. The output contains the full repository-root paths,
+so use the matching path directly. If several repositories match, inspect the
+results and select the intended repository before acting. If nothing matches,
+then proceed to cloning or ask for missing context.
 
 ### Default Branch Protection
 
@@ -67,6 +67,17 @@ When working with forks on GitHub (or other remotes):
 
 - Each clone has its own `.git/` directory, its own remotes, and its own worktrees.
 - **Never nest a fork inside another repository's worktree.** This creates confusion about which remote to push to and which branch belongs to which repo.
+
+## Commit and Pull Request Language
+
+- Default to English for commit messages, pull-request titles, and pull-request
+  bodies, regardless of the language used in the conversation.
+- Use another language only when the user explicitly requests it, repository
+  workflow or contribution documentation specifies it, or inspected commit and
+  pull-request history clearly establishes it as the repository convention.
+  Do not infer artifact language from the conversation language alone.
+- Commit messages must follow Conventional Commits unless the repository
+  specifies a different convention.
 
 ## Pull Requests
 
@@ -296,7 +307,6 @@ git branch -D <branch-name>
 
 - **Commit and push automatically at natural work boundaries** without waiting for explicit user instruction.
 - A "work boundary" is any of: task completion, file deletion, significant change set, phase transition, or before switching contexts.
-- **All commit messages MUST be in English following Conventional Commits format.** Never write commit messages in Japanese or as Japanese sentences.
 - Use descriptive commit messages. Run `nix fmt` before committing if the project uses nix formatting.
 - If push is rejected (non-fast-forward), pull with rebase first, then push again.
 - **User explicitly requires frequent commits/pushes** — do not wait for user to say "commit now". Treat commit/push as part of the workflow, not a separate action requiring permission.
@@ -326,7 +336,7 @@ across multiple turns without committing. User had to explicitly remind:
 
 When the current directory is not a git repository (e.g., `~/.hermes/hermes-agent`), locate the active worktree:
 
-1. Find the repository with `ghq list | grep -i <project-name>`
+1. Find the repository root with `ghq list --full-path | grep -i <project-name>`
 2. Determine the worktree path: branch slashes become hyphens
    - Branch `refactor/rust-core` → `.worktree/refactor-rust-core/`
 3. Verify with `git -C <worktree-path> status`
