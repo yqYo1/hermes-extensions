@@ -1,7 +1,7 @@
 ---
 name: git-workflow
 description: "Git workflow: ghq + worktree mode, branch management, and PR conventions."
-version: 1.0.0
+version: 1.1.0
 author: Hermes Agent
 license: MIT
 metadata:
@@ -17,6 +17,21 @@ metadata:
 ### Clone
 
 - Use `ghq` at `~/.nix-profile/bin/ghq` for cloning repositories.
+
+### Discover Existing Local Repositories
+
+Before cloning a repository or asking the user for its local path, search the
+repositories already managed by `ghq`:
+
+```bash
+ghq list | grep -i <search-term>
+```
+
+Run this read-only search immediately when locating a repository; no
+confirmation is required. A match is relative to `ghq root`, so use
+`$(ghq root)/<match>` as the repository root. If several repositories match,
+inspect the results and select the intended repository before acting. If
+nothing matches, then proceed to cloning or ask for missing context.
 
 ### Default Branch Protection
 
