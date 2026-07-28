@@ -1,7 +1,7 @@
 ---
 name: git-workflow
 description: "Git workflow: ghq + worktree mode, branch management, and PR conventions."
-version: 1.1.0
+version: 1.2.0
 author: Hermes Agent
 license: MIT
 metadata:
@@ -46,7 +46,9 @@ for missing context.
 ### Worktree Mode
 
 - Perform **all work exclusively** in `.worktree/<branch>/` directories.
-- When `delegate_task` changes files, branch off the parent worktree.
+- A `delegate_task` call does not require another worktree by itself. Create a
+  dedicated subagent worktree only when the task needs isolated Git or
+  filesystem state, as described below.
 - **Never create or check out feature branches in the root directory.**
 - **NEVER run `git checkout` inside a worktree to switch branches.** A worktree is bound to a single branch; switching branches inside it violates the worktree contract and causes confusion. If you need to work on a different branch, create a
   **new worktree** instead.
@@ -164,52 +166,47 @@ git config --local --unset user.email 2>/dev/null || true
 - Only override local settings when there is a specific technical requirement (e.g., repository-specific hooks, worktree-specific paths). Identity settings are never a valid reason for local overrides.
 - If you find yourself wanting to set a local git config value, **stop and ask whether it is truly necessary**. In most cases, the answer is no.
 
-## Subagent Branch Cleanup
+## Subagent Worktree Lifecycle
 
-### Problem
+Create a dedicated subagent worktree when a task needs isolated filesystem or
+Git state, such as concurrent write tasks, independent commits, or disposable
+experiments. Read-only tasks and tasks that can safely use an existing worktree
+do not need another one. Do not serialize independent tasks merely to avoid
+creating worktrees.
 
-`delegate_task` subagents may create numerous temporary branches and worktrees (e.g., `phase4-*`, `phase5-*`, `phase6-*`) for parallel work. These accumulate and clutter both local and remote repositories.
+### Creation
 
-### Prevention
+- Create each required worktree from the relevant parent branch before
+  dispatching the subagent.
+- Use a unique name that clearly identifies subagent ownership. For example,
+  use branch `subagent/<task>-<worker-id>` and worktree
+  `.worktree/subagent-<task>-<worker-id>/`.
+- Never share one worktree between concurrent write-capable subagents.
+- Pass the exact worktree path to the subagent in the delegation context.
 
-- When spawning subagents for parallel work, **instruct them to use a single branch naming convention** or consolidate work into fewer branches.
-- Prefer **sequential work on a single branch** over many parallel temporary branches unless parallelism is explicitly required.
+### Cleanup
 
-### Cleanup Procedure
-
-After subagent work completes, audit and remove temporary branches:
+After the subagent finishes, first integrate its result or deliberately discard
+it. Then promptly remove its dedicated worktree and temporary branch. Inspect
+and preserve any unintegrated changes before using force removal.
 
 ```bash
-# List all local branches (excluding main/default)
-git branch | grep -v "main\|develop"
+# Remove the dedicated worktree before deleting its branch
+git worktree remove .worktree/subagent-<task>-<worker-id>
 
-# List all remote branches
-git branch -r
+# For a dirty worktree, inspect and preserve its changes, then use this instead
+git worktree remove --force .worktree/subagent-<task>-<worker-id>
 
-# Delete remote temporary branches
-git push origin --delete <temp-branch-1> <temp-branch-2> ...
+# Delete the temporary local branch
+git branch -D subagent/<task>-<worker-id>
 
-# Remove local worktrees (must remove worktree before deleting branch)
-git worktree remove <worktree-path>          # if clean
-git worktree remove --force <worktree-path>  # if dirty
-
-# Delete local branches
-git branch -D <temp-branch-1> <temp-branch-2> ...
+# If the temporary branch was pushed, delete it remotely and prune the ref
+git push origin --delete subagent/<task>-<worker-id>
+git fetch origin --prune
 ```
 
-### What to Keep
-
-- The user's main working branch (e.g., `refactor/rust-core`)
-- Branches with open PRs
-- Branches explicitly requested by the user
-- The current active worktree
-
-### What to Delete
-
-- `phase*-*` pattern branches created by subagents
-- Detached HEAD worktrees
-- Branches already merged to main
-- Any branch not referenced in an open PR and not actively being worked on
+Keep a subagent worktree or branch while its task is active, its changes remain
+unintegrated, it has an open PR, or the user explicitly requested it be kept.
 
 ## Worktree Path Convention
 
