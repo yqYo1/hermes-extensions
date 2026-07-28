@@ -46,9 +46,10 @@ for missing context.
 ### Worktree Mode
 
 - Perform **all work exclusively** in `.worktree/<branch>/` directories.
-- A `delegate_task` call does not require another worktree by itself. Create a
-  dedicated subagent worktree only when the task needs isolated Git or
-  filesystem state, as described below.
+- A strictly read-only `delegate_task` call does not require another worktree.
+  When a delegated task may write anywhere in a Git working tree or mutate its
+  local branch, index, or commit history, create a dedicated subagent worktree
+  as described below.
 - **Never create or check out feature branches in the root directory.**
 - **NEVER run `git checkout` inside a worktree to switch branches.** A worktree is bound to a single branch; switching branches inside it violates the worktree contract and causes confusion. If you need to work on a different branch, create a
   **new worktree** instead.
@@ -168,11 +169,18 @@ git config --local --unset user.email 2>/dev/null || true
 
 ## Subagent Worktree Lifecycle
 
-Create a dedicated subagent worktree when a task needs isolated filesystem or
-Git state, such as concurrent write tasks, independent commits, or disposable
-experiments. Read-only tasks and tasks that can safely use an existing worktree
-do not need another one. Do not serialize independent tasks merely to avoid
-creating worktrees.
+Treat subagents as lower-trust workers for repository writes because they
+may run lower-cost models. Default to a dedicated subagent worktree whenever a
+delegated task may write inside a Git working tree or change its local branch
+state. This includes source edits, generated files, staging, commits, rebases,
+cherry-picks, merges, and disposable experiments.
+
+A dedicated subagent worktree is optional only when the delegated task is
+strictly read-only with respect to the local repository, or when all writes are
+outside every Git working tree and cannot mutate local branch state. Examples
+include source inspection, history or status queries, CI monitoring, and remote
+state inspection. Do not serialize independent tasks merely to avoid creating
+worktrees.
 
 ### Creation
 
