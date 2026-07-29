@@ -74,9 +74,6 @@ nix flake check
 
 # Run specific check
 nix build .#checks.x86_64-linux.<check-name>
-
-# Enter development shell
-nix develop
 ```
 
 ## Skill Management
