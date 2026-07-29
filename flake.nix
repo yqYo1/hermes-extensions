@@ -219,16 +219,6 @@
             };
           };
 
-          # Development shell
-          devShells.default = pkgs.mkShell {
-            packages = [
-              pkgs.basedpyright
-              pkgs.python312Packages.ty
-              pkgs.typos
-              kakehashi.packages.${system}.default
-              config.treefmt.build.wrapper
-            ];
-          };
         };
     };
 }
