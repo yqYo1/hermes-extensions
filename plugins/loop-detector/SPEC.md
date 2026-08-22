@@ -1,129 +1,475 @@
 ---
 name: loop-detector
-version: 1.0.0
-description: "Detects LLM thinking loops and tool-call loops, rolls back to pre-loop state, and retries with a recovery prompt."
+version: 2.0.0
+description: "Detects LLM response loops and tool-call loops, blocks them, and notifies the model via ephemeral context injection."
 author: yqYo1
 license: MIT
 hooks:
   - pre_tool_call
-  - post_llm_call
-  - on_session_end
+  - post_api_request
+  - pre_llm_call
   - on_session_reset
 ---
 
-# Loop Detector Plugin
+# Loop Detector Plugin 仕様書
+
+本仕様書は loop-detector プラグインの**目標仕様**である。現行実装（v1.x）ではなく、v2.0.0
+として実装すべき姿を定義する。コードブロックは例示であり細部は実装時に補完してよいが、
+文章で記述された型・動作・制約は拘束力を持つ。関数シグネチャの部分的な省略は禁止する。
 
 ## 1. 目的
 
-Hermes Agent のセッション中に以下の 2 種類のループを検知し、検知した場合はループ前の状態に巻き戻して再試行する。
+Hermes Agent のセッション中に以下の 2 種類のループを検知し、被害を抑止する。
 
-1. **思考ループ（Thinking Loop）**: 同じ内容や同じ推論パターンを繰り返し出力する LLM の振る舞い
-2. **ツール呼び出しループ（Tool Loop）**: 同じツールを同じ引数で繰り返し呼び出す振る舞い
+1. **ツール呼び出しループ（Tool Loop）**: 同じツールを同じ引数で繰り返し呼び出す振る舞い
+2. **応答ループ（Response Loop）**: LLM が出力テキストとして同じ内容や同じ推論パターンを
+   繰り返し出力する振る舞い。比較対象は `assistant_message.content`（全 API 呼び出しの
+   出力テキスト、ターン内の中間出力を含む）であり、thinking／推論トレース（reasoning
+   フィールド）ではない
+
+検知時の対応は**ブロックと通知**に限定する。メッセージ履歴の巻き戻しは行わない
+（理由は §2.2 および §13 を参照）。
 
 ## 2. 設計方針
 
-- **検知は軽量に**: 完全一致ではなく類似度ベースで検知。編集距離やハッシュ比較を使う
-- **巻き戻しは安全に**: セッションDBのメッセージ履歴を直接操作し、ループ開始点まで削除
-- **再試行は賢く**: 巻き戻し後、モデルに「前回の試行でループが発生した」ことを通知する回復プロンプトを注入
-- **設定可能**: 検知閾値、履歴比較ウィンドウ、最大再試行回数を config.yaml で調整可能
+### 2.1 基本方針
 
-## 3. ループ検知アルゴリズム
+- **検知は軽量に**: ツールループは完全一致ベースで検知する。類似度計算は応答ループに限定する
+- **抑止は確実に**: ツールループは `pre_tool_call` フックのブロック機構で機械的に停止する
+- **通知は公式機構で**: モデルへの通知は `llm_request` middleware（ターン内即時注入）と
+  `pre_llm_call` のコンテキスト注入（次ターン補助）を使い、CLI・ゲートウェイ両モードで
+  動作させる
+- **誤検知は LLM 確認で吸収**: ポーリングや CI 待ちなど意図的な繰り返しを、
+  構造化 LLM 確認で除外する
+- **設定可能**: 検出閾値・確認の成否時動作・ブロック上限を config.yaml で調整可能にする
 
-### 3.1 思考ループ検知
+### 2.2 巻き戻しを行わない理由（設計決定）
 
+v1.x ではセッション DB のメッセージ削除による巻き戻しを設計していたが、以下の理由で廃止する。
+
+1. 実行中エージェントのインメモリ `conversation_history` をプラグインから操作する公式手段が
+   存在しない。DB だけ巻き戻しても、次の LLM 呼び出しにはループした内容を含む古い履歴が
+   送られ続けるため、巻き戻しの目的（ループ前の状態でやり直す）が達成されない
+2. 公式の `SessionDB.rewind_to_message`（soft-delete）は CLI の `/undo` が CLI 層の
+   インメモリ手術と組み合わせて使う前提の機能であり、プラグインから単独で使っても
+   インメモリ不整合は解消されない
+3. 生 SQLite による直接 DELETE は SessionDB の WAL・リトライ管理をバイパスし、
+   gateway・cron 等の他プロセスと共有される state.db に対する競合リスクがある
+
+代替として、ブロック時のエラーメッセージと次ターンの回復通知によって、モデルに
+「ループが検出・停止された」という事実を伝え、事実上の再試行を促す。
+
+### 2.3 コアとの境界
+
+Hermes コアにはファイル読み取りループ検出（同一ファイルの連続読み取りに対する警告・
+ブロック）が既に存在するが、任意ツールの引数レベルの繰り返しや、会話内容の停滞を
+検出する機構は存在しない。本プラグインはその領域を担う。
+
+## 3. 用語
+
+| 用語 | 定義 |
+| ---- | ---- |
+| 正規化ツール呼び出し | `(tool_name, canonical_json)` のタプル。`canonical_json` は引数辞書から揮発性キー（`task_id`, `session_id`, `tool_call_id`）を除去し、キーソート済み JSON 文字列化したもの |
+| 検出パターン | 検出されたループを一意に表す識別子。ツールループでは正規化ツール呼び出し（交互パターンでは周期シーケンス）、応答ループでは「response」固定 |
+| 許可リスト | LLM 確認で「意図的」と判定された検出パターンの集合。セッション内で永続（以後同一パターンは確認・ブロックしない） |
+| 回復通知 | ループがブロックされたことをモデルに伝えるための、次ターン `pre_llm_call` で注入されるエフェメラルコンテキスト |
+
+## 4. ツールループ検出
+
+### 4.1 検出対象
+
+`pre_tool_call` フックに渡される `tool_name` と `args` を正規化ツール呼び出しに変換し、
+セッションごとの履歴に記録する（§9 参照）。この履歴はターン開始時（`pre_llm_call`）に
+クリアされる per-turn データであり、同一ターン内のツール呼び出しのみを検出対象とする。
+
+### 4.2 検出条件
+
+以下のいずれかを満たした場合に検出とする。いずれも直近の履歴のみを対象とする。
+
+1. **連続一致**: 同一の正規化ツール呼び出しが `consecutive_threshold`（既定 3）回連続
+2. **ウィンドウ内反復**: 直近 `window_size`（既定 10）件中に同一の正規化ツール呼び出しが
+   `window_threshold`（既定 4）回以上
+3. **交互パターン**: 周期 2 または 3 のシーケンスが `alternating_min_length`（既定 6）件以上
+   連続（例: A→B→A→B→A→B）。`alternating_enabled: false` で無効化可能。
+   判定は直近 `alternating_min_length` 件を対象に、周期 2 → 周期 3 の順でマッチを試み、
+   最初にマッチした周期を採用する（周期 2 が周期 3 を包含する場合があるため小さい周期を
+   優先する）。周期シーケンスの全要素が対象範囲内で完全に繰り返される場合のみマッチとする
+   （末尾の不完全なサイクルはマッチとしない）
+
+現在の呼び出しは**検出判定の後に**履歴へ追加する（追加済みの現在呼び出しをカウントに
+含めるとオフバイワンが発生するため）。
+
+### 4.3 類似度ベース検出を採用しない理由（設計決定）
+
+実セッション DB（約 1,500 セッション）の機械解析で、引数類似度 0.8 以上の「近似ループ」は
+26,000 件超検出されたのに対し、ユーザーが実際にループを指摘したのは 34 件だった。
+類似度ベースの検出は偽陽性が支配的であり、厳密一致ベースを主軸とする。
+
+## 5. 応答ループ検出
+
+### 5.1 検出対象
+
+`post_api_request` フックに渡される `assistant_message`（`NormalizedResponse` データ
+クラス）の `.content`（文字列）をセッションごとの履歴に記録する（§9 参照）。この履歴は
+ターン開始時（`pre_llm_call`）にクリアされる per-turn データであり、同一ターン内の
+応答のみを検出対象とする。`post_api_request` は
+**全 LLM API 呼び出しで発火**し（ターン内の中間ツール呼び出しステップ・リトライ・
+最終応答を含む）、中断されたターンでも発火する。これにより、ループが継続している
+ターン内で即座に検出できる（`post_llm_call` は中断ターンで発火せず、ターン終了まで
+検出が遅れるため不適）。
+
+`assistant_message.content` はモデルの出力テキスト（ツール呼び出しと並行する中間の
+「thinking aloud」テキストを含む）であり、thinking／推論トレース（reasoning
+フィールド）ではない。応答ループ検出は推論内容ではなく、出力テキストの反復を対象と
+する。`content` が空文字列の場合（tool-call-only 応答）は履歴に追加しない。
+
+### 5.2 検出条件
+
+1. 各 `assistant_response` を正規化する（小文字化・空白畳み込み・数値の `{NUM}` 置換・
+   コードフェンス言語指定の除去）
+2. 直近 `window_size`（既定 10）件について隣接ペアの類似度を
+   `difflib.SequenceMatcher.ratio()` で計算
+3. **末尾アンカー条件**: 直近の応答から遡って連続する類似ペア（trailing run）の数が
+   `min_repetitions`（既定 3）以上 かつ 類似度が `similarity_threshold`
+   （既定 0.95）以上 → 検出
+
+末尾アンカーの意味: 検出対象は**現在も継続中のループ**に限定する。過去にループして
+いたが LLM が自力で脱出済み（直近のペアが類似でない）のものは検出しない。脱出済み
+ループへの通知はモデルの性能を低下させるだけであり、ハーネスの自動メッセージや
+ユーザー指摘なしに自力脱出できたループは問題になっていないためである。継続中の
+ループは `min_repetitions` 回目の類似応答が出力されたターンで即座に検出される
+（検出を遅延させるものではない）。
+
+`min_repetitions` は `window_size - 1` を超えてはならない。設定値が超過する場合は
+`window_size - 1` にクランプする（到達不能な設定値を黙って無効化しない）。
+
+### 5.3 閾値の根拠（設計決定）
+
+閾値は実セッション DB の実測に基づいて決定した（2026-07-20 調査）。
+
+- **similarity_threshold = 0.95**: 実際の応答ループは正規化後の類似度中央値 1.0 の
+  完全一致連続であり、0.95 でも確実に検出される。検出精度が同等なら厳格な閾値を
+  採用し、偶発的類似や正規化による水増しへの安全マージンを確保する
+- **min_repetitions = 3**: 自然会話でも約 10% の隣接ペアが 0.85 を超えるため、2 では
+  偶発的一致を拾いうる。自力脱出した類似 run の 63% は長さ 1-3 の偶発的一致であり、
+  3 でこれらを除外する。4 以上は検出できる追加のループが実データに存在せず、
+  ループしたコンテキストが LLM に長く残るデメリットだけが増える
+- **window_size = 10**: 末尾アンカーによる trailing run 評価に十分な履歴を確保する
+
+### 5.4 検出後の対応
+
+応答ループはブロック対象ではない（ブロック可能なゲートが `pre_tool_call` のみであるため）。
+検出した場合は LLM 確認（§6）を経て、回復通知（§8）を設定する。
+
+## 6. LLM 確認
+
+### 6.1 目的
+
+ポーリング・CI 待ち・定期的な状態確認など、意図的な繰り返しを誤ってブロックしないため、
+検出時に LLM へ構造化確認を行う。実セッションで cron ジョブが同一 curl を 314 回連続
+呼び出した事例のように、外見上ループだが意図的な可能性があるパターンが存在する。
+
+### 6.2 確認方法
+
+- `ctx.llm.complete_structured()` を使用する。`ctx` はフック kwargs には含まれないため、
+  `register(ctx)` 時にモジュールレベルで保持する
+- `json_schema` で以下のスキーマを指定し、`PluginLlmStructuredResult.parsed` から
+  構造化結果を取得する
+
+```json
+{
+  "type": "object",
+  "properties": {
+    "is_loop": {
+      "type": "boolean",
+      "description": "true if this is an unintended loop, false if intentional"
+    },
+    "reason": {
+      "type": "string",
+      "description": "brief reason for the judgment"
+    }
+  },
+  "required": ["is_loop", "reason"]
+}
 ```
-入力: 直近 N ターンの assistant メッセージ群
-出力: ループ検知フラグ + ループ開始インデックス
 
-1. 各 assistant メッセージの「思考部分」を抽出（ reasoning / think タグ内）
-2. 直近 3 ターンの思考テキストをペアワイズ比較
-3. 類似度 > 閾値（デフォルト 0.85）のペアが 2 組以上連続で存在 → ループ判定
-4. 類似度計算: 正規化したテキストの編集距離比率
+- 確認プロンプトには検出パターンの種別・ツール名・繰り返し回数・引数の要約を含める
+- 確認呼び出しはユーザーのプロバイダ・クォータを消費する。頻度を §6.4 で制限する
+
+### 6.3 確認失敗時の既定動作（設計決定）
+
+確認呼び出しの例外・タイムアウト・JSON パース失敗時は、既定で **fail-closed（ループ判定 =
+ブロック / 回復通知設定）** とする。ループの被害（コスト・時間）は甚大であり、確認機構の
+不調は稀であるため。`confirmation.on_error: allow` に設定すると fail-open（許可）に
+切り替えられる。
+
+### 6.4 確認結果のキャッシュ
+
+- 「意図的」と判定された検出パターンはセッションの許可リストに登録し、以後同一パターンは
+  確認・ブロック・通知設定を行わない
+- ツールループで「ループ」と判定されブロックされたパターンが再度検出された場合、
+  同一ターン内では再確認せず即座にブロックする。ターンを跨いで再検出された場合は
+  `max_blocks_per_session` の上限内で再度確認してよい
+- 応答ループで「ループ」と判定された場合、同一ターン内では `response_detected_this_turn`
+  により 1 回のみ検出・通知設定する（再確認しない）
+
+### 6.5 確認の無効化
+
+`confirmation.enabled: false` の場合、LLM 確認を行わず、検出時は即座にブロック
+（ツールループ）または回復通知設定（応答ループ）を行う。
+
+## 7. ブロック動作
+
+### 7.1 ブロック方法
+
+ツールループ検出時（LLM 確認でループ判定、または確認無効時）は、`pre_tool_call` から
+以下を返す。
+
+```python
+{"action": "block", "message": "<ブロック理由>"}
 ```
 
-### 3.2 ツール呼び出しループ検知
+ブロックメッセージには以下を含める。
 
-```
-入力: 直近 M 回の tool_calls 群
-出力: ループ検知フラグ + ループ開始インデックス
+- ループ検出の事実と検出パターンの要約（ツール名・繰り返し回数）
+- セッション内のブロック累計回数と上限（例: `2/5`）
+- モデルへの指示（同じ呼び出しを繰り返さず、別のアプローチを取ること）
 
-1. 各 tool_call を (tool_name, normalized_args) のタプルに変換
-2. 直近 3 回の tool_call セットを比較
-3. 完全一致または引数の 90% 以上が一致 → ループ判定
-4. 特殊ケース: 連続する browser_navigate → browser_click → browser_navigate → browser_click などの交互パターンも検知
-```
+ブロックされた呼び出しは `post_tool_call` に `status="blocked"` として観測されるが、
+本プラグインは `post_tool_call` を使用しない（ブロック済み呼び出しは履歴に追加しない。
+実行されていないため検出の入力にすべきでない）。
 
-## 4. 巻き戻し機構
+### 7.2 ブロック上限
 
-### 4.1 巻き戻し対象
+`max_blocks_per_session`（既定 5）を超えた場合、以後の検出ではブロックを行わず、
+回復通知のみを設定する。無限にブロックを繰り返してセッションを硬直させないための
+安全弁である。
 
-- セッションDB (`~/.hermes/state.db`) 内のメッセージテーブル
-- ループ開始点（検知された最初の繰り返しターン）より後のメッセージを全て削除
+## 8. 回復通知注入
 
-### 4.2 巻き戻し手順
+回復通知の注入経路はループ種別によって異なる。
 
-```
-1. SessionDB.get_messages(session_id) で全メッセージを取得
-2. ループ開始インデックスを特定
-3. そのインデックス以降のメッセージを DB から削除
-4. メモリ上の conversation_history も同様にトリム
-```
+- **ツールループ**: ブロック（§7）自体が即時フィードバックとなるため、通知は次ターンの
+  `pre_llm_call` で行う（§8.3）
+- **応答ループ**: ブロック経路が存在しないため、`llm_request` middleware によって
+  **検出したターン内の次の API 呼び出しで即時注入**する（§8.2）。即時注入されなかった
+  場合（検出がターンの最後の API 呼び出しだった場合等）の保険として、次ターンの
+  `pre_llm_call` でも通知する（§8.3）
 
-### 4.3 回復プロンプト注入
+### 8.1 `llm_request` middleware によるターン内即時注入（設計決定）
 
-巻き戻し後、次の LLM 呼び出し前に以下のコンテキストを注入:
+応答ループ検出時（LLM 確認でループ判定、または確認無効時）は、`pending_recovery` を
+設定する。`llm_request` middleware（`ctx.register_middleware("llm_request", ...)`）は
+**各 API 呼び出しの直前**に発火し（`conversation_loop.py` L1266-1282）、
+`request` kwarg としてプロバイダ kwargs（`messages` を含む）を受け取る。
 
-```
-[system notification]
-前回の試行でループが検知されました。以下に注意してください:
-- 同じ推論や同じツール呼び出しを繰り返さないでください
-- 異なるアプローチや別のツールを検討してください
-- すでに試行済みの内容は省略し、次のステップに進んでください
-```
+middleware は `pending_recovery` が設定されている場合、`request["messages"]` の末尾に
+回復通知を含むユーザーメッセージを追加したコピーを `{"request": <変更後>}` として返す。
+これにより、**ループが継続しているターン内の次の LLM 呼び出しで即座に通知**できる。
+応答ループはユーザー入力でしか脱出しないケースが主であるため、次ターンまで待たず
+ターン内で止めることはコスト・コンテキスト消費の抑止に本質的な効果がある。
 
-## 5. 設定項目
+注入はエフェメラルであり、以下の性質を持つ。
+
+- `api_kwargs` のコピーを変更するため、セッション DB には永続化されない
+- CLI・ゲートウェイ両モードで動作する（`conversation_loop.py` 共有）
+- 注入後は `pending_recovery` をクリアし、1 回きりとする
+
+### 8.2 注入メッセージの形式
+
+`messages` 末尾に追加するメッセージは `{"role": "user", "content": "<通知テキスト>"}`
+の形式とする。通知テキストは以下の要素を含む（`response.recovery_notice` で上書き可能）。
+
+- 応答ループが検出された事実
+- 検出パターンの要約（類似応答の繰り返し回数）
+- 同じ応答を繰り返さず、別のアプローチを検討する指示
+
+### 8.3 `pre_llm_call` による次ターン通知（補助）
+
+`llm_request` で注入されなかった `pending_recovery`（検出がターンの最後の API 呼び出し
+だった場合、またはツールループのブロック後）は、次ターンの `pre_llm_call` で
+`{"context": "<通知テキスト>"}` を返して注入する。`pre_llm_call` はターン開始時に
+`build_turn_context` 内で 1 回のみ発火し、注入コンテキストはユーザーメッセージに
+付加されるエフェメラルな内容である（システムプロンプト不変・キャッシュ維持・
+永続化なし・CLI/ゲートウェイ両対応）。
+
+### 8.4 `inject_message` を使わない理由（設計決定）
+
+`ctx.inject_message()` は CLI モード専用であり、ゲートウェイモードでは `_cli_ref` が
+存在せず常に `False` を返す。v1.x はこれに依存していたためゲートウェイで通知が静かに
+失敗していた。`llm_request` middleware と `pre_llm_call` コンテキスト注入は両モードで
+動作する公式機構である。
+
+## 9. 状態管理
+
+### 9.1 セッション状態
+
+セッション ID をキーとするモジュールレベルの辞書で管理し、以下を保持する。
+
+| フィールド | 内容 | 上限 | スコープ |
+| ---------- | ---- | ---- | -------- |
+| `tool_calls` | 正規化ツール呼び出しの履歴 | 直近 50 件（deque） | per-turn（`pre_llm_call` でクリア） |
+| `assistant_responses` | `assistant_message.content` の履歴（per-API-call） | 直近 50 件（deque） | per-turn（`pre_llm_call` でクリア） |
+| `allowlist` | LLM 確認で意図的と判定された検出パターン | 最大 256 件（`MAX_ENTRIES`、古いものから削除） | per-session |
+| `block_count` | セッション内のブロック累計回数 | — | per-session |
+| `pending_recovery` | 注入待ちの回復通知テキスト（未注入時は None） | — | per-session |
+| `blocked_this_turn` | 現ターンでブロック済みの検出パターン（再確認抑止用） | 次ターンの `pre_llm_call` でクリア | per-turn |
+| `response_detected_this_turn` | 現ターンで応答ループ検出済みか（再検出抑止用） | 次ターンの `pre_llm_call` でクリア | per-turn |
+
+`tool_calls` と `assistant_responses` はターン開始時（`pre_llm_call`）にクリアされる。
+ループは同一ターン内の現象であり、ターンを跨ぐ履歴はノイズとなるためである。
+検出はターン内の API 呼び出し単位で動作し、ターン内の履歴のみを対象とする。
+
+`assistant_responses` は per-API-call で記録されるため 1 ターンに複数件追加される。
+`window_size`（既定 10）の比較に十分な履歴を確保するため maxlen は 50 とする。
+応答ループはブロックできないため、同一ターン内で同じパターンが複数の API 呼び出しで
+再検出されうる。`response_detected_this_turn` で 1 ターン 1 回の検出に抑制する。
+
+追跡するセッション数は `_MAX_TRACKED_SESSIONS = 128` で制限され、超過時は最も古いセッションから削除される。
+per-turn データ（`tool_calls`, `assistant_responses`）は各ターン開始時にクリアされるため、
+メモリ使用量の定常状態は O(`_MAX_TRACKED_SESSIONS × MAX_ENTRIES`) であり、
+ターン内ピーク時のみ O(`_MAX_TRACKED_SESSIONS × (maxlen + MAX_ENTRIES)`) となる。
+
+### 9.2 状態のリセット
+
+- `on_session_reset` フック（CLI `/new`・`/reset`、ゲートウェイ `/new` で発火）で
+  セッション状態を削除する
+- `on_session_end` は使用しない。ターン終了のたびに発火しうる契機であり、
+  セッション単位のクリーンアップのタイミングとして不適切なため。状態はメモリ内のみで、
+  プロセス終了で自然消滅する
+
+### 9.3 `ctx` の保持
+
+フック kwargs に `ctx` は含まれない（コアの `invoke_hook` は渡さない）。LLM 確認に必要な
+`ctx.llm` を使うため、`register(ctx)` 呼び出し時にモジュールレベル変数へ保持する。
+
+## 10. 設定項目
+
+`~/.hermes/config.yaml` の `plugins.loop_detector` セクション。
 
 ```yaml
 plugins:
   loop_detector:
     enabled: true
-    thinking_loop:
-      enabled: true
-      similarity_threshold: 0.85      # 類似度閾値 (0.0-1.0)
-      window_size: 5                  # 比較対象の直近ターン数
-      min_repetitions: 2              # ループ判定に必要な連続繰り返し数
     tool_loop:
       enabled: true
-      max_identical_calls: 2          # 同じツール呼び出しの最大許容回数
-      window_size: 6                  # 比較対象の直近ツール呼び出し数
-    rollback:
-      max_retries: 3                  # 1セッションあたりの最大再試行回数
-      recovery_prompt: "..."          # 回復プロンプト（省略可）
+      consecutive_threshold: 3        # 同一呼び出しの連続検出回数
+      window_size: 10                 # ウィンドウ内反復の比較対象件数
+      window_threshold: 4             # ウィンドウ内の同一呼び出し検出回数
+      alternating_enabled: true       # 交互パターン検出の有効化
+      alternating_min_length: 6       # 交互パターンの最小連続件数
+    response_loop:
+      enabled: true
+      similarity_threshold: 0.95      # 類似度閾値 (0.0-1.0)
+      window_size: 10                 # 比較対象の直近応答数
+      min_repetitions: 3              # 検出に必要な末尾連続類似ペア数
+    confirmation:
+      enabled: true                   # LLM 確認の有効化
+      on_error: block                 # 確認失敗時の既定動作 (block|allow)
+      timeout: 30                     # 確認呼び出しのタイムアウト秒
+    response:
+      max_blocks_per_session: 5       # セッションあたりのブロック上限
+      recovery_notice: ""             # 回復通知テキスト（空文字は既定文を使用）
 ```
 
-## 6. 実装ファイル構成
+## 11. フック使用計画
 
+| フック / middleware | ペイロード（コアが渡す kwargs） | 用途 |
+| ------ | ------------------------------ | ---- |
+| `pre_tool_call` | `tool_name`, `args`, `session_id`, `task_id`, `tool_call_id`, `turn_id`, `api_request_id`, `middleware_trace` | ツールループ検出・ブロック（`{"action": "block", "message": ...}` を返却） |
+| `post_api_request` | `session_id`, `task_id`, `turn_id`, `api_request_id`, `model`, `provider`, `base_url`, `api_mode`, `api_call_count`, `api_duration`, `started_at`, `ended_at`, `finish_reason`, `message_count`, `response_model`, `response`, `usage`, `assistant_message`, `assistant_content_chars`, `assistant_tool_call_count`, `platform` | 応答ループ検出（`assistant_message.content` を記録・比較） |
+| `llm_request`（middleware） | `request`（プロバイダ kwargs、`messages` を含む）, `task_id`, `turn_id`, `api_request_id`, `session_id`, `platform`, `model`, `provider`, `base_url`, `api_mode`, `api_call_count` | 応答ループ検出時のターン内即時注入（`{"request": <messages に通知を追加したコピー>}` を返却） |
+| `pre_llm_call` | `session_id`, `task_id`, `turn_id`, `user_message`, `conversation_history`, `is_first_turn`, `model`, `platform`, `sender_id` | 次ターン補助通知（`{"context": ...}` を返却）、`blocked_this_turn`・`response_detected_this_turn` のクリア |
+| `on_session_reset` | `session_id`, `platform`, `reason`（ゲートウェイは `old_session_id`, `new_session_id` も） | セッション状態の削除 |
+
+各フックの注意事項:
+
+- `pre_tool_call` はツール実行につき正確に 1 回発火する（single-fire 契約）
+- `pre_tool_call` のブロックディレクティブは複数プラグインが返した場合、登録順で
+  最初に返されたもののみが採用される（first-wins）。他のブロック系プラグインと
+  競合する場合、loop-detector のブロックが後続として無視されうる
+- `post_api_request` は全 API 呼び出しで発火する（ターン内の中間ツール呼び出し
+  ステップ・リトライ・最終応答を含む）。中断されたターンでも発火する。
+  `assistant_message.content` が空文字列（tool-call-only 応答）の場合は履歴に追加しない
+- `llm_request` middleware は各 API 呼び出し直前に発火する。変更しない場合は `None`
+  を返す。`request` は `api_kwargs` であり、`messages` キーにメッセージリストを持つ。
+  middleware はコピーを変更して返すこと（元のオブジェクトを直接変更しない）
+- `pre_llm_call` はターン開始時に `build_turn_context` 内で 1 回のみ発火する
+  （API 呼び出しごとではない）
+- `on_session_reset` の `reason` は CLI・メッセージングゲートウェイでは渡されるが、
+  TUI ゲートウェイでは渡されない場合がある。プラグイン内では `kwargs.get("reason")`
+  のように安全にアクセスし、存在を前提としない
+- いずれのフックでも、コールバックが例外を送出してもコアは停止しない（警告ログのみ）。
+  プラグイン内で例外を捕捉し、障害時は検出を行わない方向（ブロックしない方向ではなく、
+  §6.3 の on_error 設定に従う方向）で安全側に倒す
+
+## 12. 実装ファイル構成
+
+```text
+plugins/loop-detector/
+├── plugin.yaml          # マニフェスト（hooks: pre_tool_call, post_api_request, pre_llm_call, on_session_reset）
+├── __init__.py          # register()、フックハンドラ、セッション状態管理
+├── detector.py          # 検出アルゴリズム（ツールループ・応答ループ）
+├── confirmation.py      # LLM 確認（complete_structured 呼び出し・結果キャッシュ）
+├── config.yaml.example  # 設定例（§10 と一致させる）
+├── README.md            # ユーザー向け説明（インストール・設定・動作）
+└── SPEC.md              # 本仕様書
 ```
-~/.hermes/plugins/loop-detector/
-├── plugin.yaml          # マニフェスト
-├── __init__.py          # register() とメインライン
-├── detector.py          # ループ検知アルゴリズム
-├── rollback.py          # 巻き戻し・DB操作
-└── config.py            # 設定読み込み
-```
 
-## 7. フック使用計画
+v1.x の `rollback.py` は廃止する（§2.2）。
 
-| フック | 用途 |
-| --------- | ----- |
-| `post_llm_call` | assistant メッセージを受け取り、思考ループ検知 |
-| `pre_tool_call` | ツール呼び出し前にツールループ検知・ブロック |
-| `on_session_end` | セッション状態のクリーンアップ |
-| `on_session_reset` | リセット時の状態初期化 |
+## 13. 制限事項
 
-## 8. 制限事項・注意点
+1. **巻き戻しは行わない**: インメモリ履歴をプラグインから操作する公式手段が存在しない
+   ため、ループ発生前の状態への復帰はできない。ブロックと通知による抑止に留まる
+2. **応答ループはブロックできない**: ブロック可能なゲートは `pre_tool_call` のみであり、
+   LLM 応答自体を差し止める機構はプラグインに存在しない。応答ループへの対応は
+   `llm_request` middleware によるターン内即時注入と、`pre_llm_call` による次ターン
+   通知による間接的な抑止となる。検出がターンの最後の API 呼び出しだった場合、
+   ターン内即時注入は行われず次ターン通知となる
+3. **オンメモリ状態**: 全状態はプロセス内メモリのみで管理され、以下の上限によりメモリ使用量が抑制される。
+   - **セッション単位の履歴（per-turn）**: `tool_calls`・`assistant_responses` は `deque(maxlen=50)` で管理される。
+     `window_size`（既定 10）の比較に十分な履歴を確保できる値である。deque はターン開始時（`pre_llm_call`）に
+     クリアされるため、maxlen=50 はターン内の安全性キャップであり、ターンを跨ぐ保持期間ではない。
+     定常状態では履歴は空であり、ターン内ピーク時のみ 50 件までの履歴が存在する。
+   - **追跡セッション数**: `_MAX_TRACKED_SESSIONS = 128` で上限され、超過時は最も古いセッションから削除される。
+   - **許可リスト（per-session）**: セッションあたり `MAX_ENTRIES = 256` 件で上限され、超過時は最も古いエントリから削除される。
+     許可リストはターンを跨いで永続する。
+   - **メモリ使用量のオーダー**: 定常状態は O(`_MAX_TRACKED_SESSIONS × MAX_ENTRIES`) である（deque は空）。
+     ターン内ピーク時は O(`_MAX_TRACKED_SESSIONS × (maxlen + MAX_ENTRIES)`) となる。
+   プロセス再起動では per-session データ（許可リスト・ブロック累計・pending_recovery）が失われる。
+   検出はターン内の API 呼び出し単位で動作し、LLM の会話は API 経由で独立して継続されるため、
+   再起動が検出精度に与える影響は限定的である（失われるのは許可リストによる確認省略と
+   ブロック累計のリセットのみ）。
+4. **コマンド解析の限界**: `terminal` ツールの引数（シェルコマンド文字列）は文字列として
+   比較する。ヒアドキュメント・コマンド置換・環境変数展開を含む複雑なコマンドの
+   意味的な等価性は判定しない
+5. **確認 LLM のコスト**: LLM 確認は検出のたびにユーザーのクォータを消費する。
+   §6.4 のキャッシュで頻度を抑えるが、連続した異種パターンの検出時は複数回の確認が
+   発生しうる
 
-- プラグインは `pre_tool_call` でブロック可能だが、既存のメッセージを削除する権限はない
-- SessionDB への直接アクセスは可能だが、メモリ上の `conversation_history` はエージェント本体が管理
-- 巻き戻し後の回復プロンプトは `pre_llm_call` または `inject_message()` で注入
-- 再試行回数の上限を設け、無限ループを防ぐ
+## 14. 設計決定の根拠
+
+本仕様の主要な判断は以下の実データ調査に基づく（2026-07-20 実施）。
+
+1. **厳密一致主軸の検出**: 実セッション DB 約 1,500 件の機械解析で、厳密連続ループは
+   59 件・厳密ウィンドウ内反復は 1,644 件だったのに対し、引数類似度ベースでは 26,440 件と
+   偽陽性が支配的だった。ユーザーの実際のループ指摘は 34 件
+2. **早期検出の必要性**: ワースト事例は `git log --format` の 122 回連続同一実行、
+   `git log --oneline --grep` の 427 回連続実行。連続 3 回での検出により被害を
+   初期段階で抑止できる
+3. **LLM 確認の必要性**: cron セッションでの同一 curl 314 回連続呼び出しのように、
+   外見上ループだが意図的なポーリングの可能性があるパターンが実在する
+4. **両モード対応の通知機構**: ユーザーのループ指摘の多くはゲートウェイ（Discord）
+   セッションで発生しており、CLI 専用の `inject_message` に依存した v1.x の通知機構は
+   主要な被害領域で機能していなかった
+5. **`post_llm_call` から `post_api_request` への移行**: (a) `post_llm_call` は中断された
+   ターンでは発火しないため、中断ターン中の応答ループを見逃していた (b) ターン終了
+   まで検出が遅れると、ループが完了してからしか対応できない。per-API-call 検出により
+   ループ継続中に検出が可能 (c) 末尾アンカールールは per-API-call でも有効 — 各 API
+   応答を個別に評価し、直近 N 件の trailing run で判定する
+6. **`llm_request` middleware によるターン内即時注入**: ターン内注入経路の網羅的調査で
+   `llm_request` middleware が各 API 呼び出し直前に発火しリクエスト（`messages`）を
+   変更できることが一次ソースで確認された（`conversation_loop.py` L1266-1282、
+   `hermes_cli/middleware.py` L77-110）。応答ループはブロックできないため、
+   ターン内で即座に通知できるこの経路が最も早期にループを止められる
